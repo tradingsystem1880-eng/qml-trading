@@ -1,0 +1,102 @@
+{
+  "date": "2025-12-29",
+  "week": 1,
+  "day": 1,
+  "timestamp": "2025-12-29T01:44:01.949008",
+  "scan_status": "SUCCESS",
+  "software_errors": 0,
+  "market_context": {
+    "average_vol_percentile": 0.1155629021780878,
+    "regime": "LOW",
+    "symbols": {
+      "BTC/USDT": {
+        "current_price": 87883.5,
+        "vol_percentile": 0.0602260344763797,
+        "atr_24h_pct": 0.09581070070810932
+      },
+      "ETH/USDT": {
+        "current_price": 2943.24,
+        "vol_percentile": 0.0788482139724089,
+        "atr_24h_pct": 0.1741498583982386
+      },
+      "SOL/USDT": {
+        "current_price": 124.55,
+        "vol_percentile": 0.04767915256243377,
+        "atr_24h_pct": 0.3001528428174274
+      },
+      "BNB/USDT": {
+        "current_price": 856.77,
+        "vol_percentile": 0.23555688017329696,
+        "atr_24h_pct": 0.21600034058515727
+      },
+      "XRP/USDT": {
+        "current_price": 1.8711,
+        "vol_percentile": 0.1555042297059197,
+        "atr_24h_pct": 0.2229131095681481
+      }
+    }
+  },
+  "signals": {
+    "total": 5,
+    "passed_filter": 0,
+    "failed_filter": 5,
+    "details": [
+      {
+        "signal_id": "qml_BTCUSDT_20251218_2000",
+        "symbol": "BTC/USDT",
+        "pattern_type": "BEARISH",
+        "entry": 85740.57,
+        "stop_loss": 91739.53020129,
+        "take_profit": 79741.60979871,
+        "vol_percentile": 0.06022603447637903,
+        "filter_decision": "FAIL",
+        "filter_reason": "vol_percentile (0.06) <= 0.7"
+      },
+      {
+        "signal_id": "qml_BTCUSDT_20251222_1100",
+        "symbol": "BTC/USDT",
+        "pattern_type": "BULLISH",
+        "entry": 88952.97015,
+        "stop_loss": 87066.67581414,
+        "take_profit": 90839.26448586,
+        "vol_percentile": 0.06022603447637903,
+        "filter_decision": "FAIL",
+        "filter_reason": "vol_percentile (0.06) <= 0.7"
+      },
+      {
+        "signal_id": "qml_SOLUSDT_20251226_0200",
+        "symbol": "SOL/USDT",
+        "pattern_type": "BULLISH",
+        "entry": 122.8427,
+        "stop_loss": 118.90320285,
+        "take_profit": 126.78219715,
+        "vol_percentile": 0.04767915256243367,
+        "filter_decision": "FAIL",
+        "filter_reason": "vol_percentile (0.05) <= 0.7"
+      },
+      {
+        "signal_id": "qml_BNBUSDT_20251218_1200",
+        "symbol": "BNB/USDT",
+        "pattern_type": "BEARISH",
+        "entry": 859.82775,
+        "stop_loss": 898.77515454,
+        "take_profit": 820.88034546,
+        "vol_percentile": 0.23555688017330068,
+        "filter_decision": "FAIL",
+        "filter_reason": "vol_percentile (0.24) <= 0.7"
+      },
+      {
+        "signal_id": "qml_BNBUSDT_20251221_0200",
+        "symbol": "BNB/USDT",
+        "pattern_type": "BULLISH",
+        "entry": 845.9689,
+        "stop_loss": 804.75459077,
+        "take_profit": 887.18320923,
+        "vol_percentile": 0.23555688017330068,
+        "filter_decision": "FAIL",
+        "filter_reason": "vol_percentile (0.24) <= 0.7"
+      }
+    ]
+  },
+  "notes": "Day 1 of official paper trading. Low volatility market conditions observed."
+}

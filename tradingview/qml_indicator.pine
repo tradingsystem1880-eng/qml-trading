@@ -1,0 +1,331 @@
+// QML Pattern Indicator for TradingView
+// Visualizes QML (Quasimodo) patterns detected by the trading system
+// Version 1.0
+
+//@version=5
+indicator("QML Pattern Detector", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// =============================================================================
+// INPUTS
+// =============================================================================
+
+// Swing Detection
+swingLookback = input.int(5, "Swing Lookback Bars", minval=2, maxval=20)
+atrPeriod = input.int(14, "ATR Period", minval=5, maxval=50)
+atrMultiplier = input.float(0.5, "ATR Multiplier for Significance", minval=0.1, maxval=3.0, step=0.1)
+
+// CHoCH/BoS Detection
+chochBreakATR = input.float(0.3, "CHoCH Break ATR Multiplier", minval=0.1, maxval=2.0, step=0.1)
+bosBreakATR = input.float(0.5, "BoS Break ATR Multiplier", minval=0.1, maxval=2.0, step=0.1)
+
+// Pattern Display
+showSwingPoints = input.bool(true, "Show Swing Points")
+showStructure = input.bool(true, "Show Market Structure")
+showPatterns = input.bool(true, "Show QML Patterns")
+showLevels = input.bool(true, "Show Trading Levels")
+
+// Colors
+bullishColor = input.color(color.new(color.green, 20), "Bullish Color")
+bearishColor = input.color(color.new(color.red, 20), "Bearish Color")
+neutralColor = input.color(color.new(color.gray, 50), "Neutral Color")
+
+// =============================================================================
+// CALCULATIONS
+// =============================================================================
+
+// ATR Calculation
+atr = ta.atr(atrPeriod)
+
+// Swing Point Detection
+swingHigh = ta.pivothigh(high, swingLookback, swingLookback)
+swingLow = ta.pivotlow(low, swingLookback, swingLookback)
+
+// Significance check
+isSignificantHigh = not na(swingHigh) and (swingHigh - ta.lowest(low, swingLookback)) > atr * atrMultiplier
+isSignificantLow = not na(swingLow) and (ta.highest(high, swingLookback) - swingLow) > atr * atrMultiplier
+
+// Track recent swing points
+var float lastSwingHigh = na
+var float lastSwingLow = na
+var int lastSwingHighBar = na
+var int lastSwingLowBar = na
+
+var float prevSwingHigh = na
+var float prevSwingLow = na
+
+// Update swing highs
+if isSignificantHigh
+    prevSwingHigh := lastSwingHigh
+    lastSwingHigh := swingHigh
+    lastSwingHighBar := bar_index - swingLookback
+
+// Update swing lows
+if isSignificantLow
+    prevSwingLow := lastSwingLow
+    lastSwingLow := swingLow
+    lastSwingLowBar := bar_index - swingLookback
+
+// =============================================================================
+// MARKET STRUCTURE CLASSIFICATION
+// =============================================================================
+
+// Higher High / Lower High
+isHH = not na(lastSwingHigh) and not na(prevSwingHigh) and lastSwingHigh > prevSwingHigh + atr * 0.15
+isLH = not na(lastSwingHigh) and not na(prevSwingHigh) and lastSwingHigh < prevSwingHigh - atr * 0.15
+
+// Higher Low / Lower Low
+isHL = not na(lastSwingLow) and not na(prevSwingLow) and lastSwingLow > prevSwingLow + atr * 0.15
+isLL = not na(lastSwingLow) and not na(prevSwingLow) and lastSwingLow < prevSwingLow - atr * 0.15
+
+// Trend determination
+var string trend = "neutral"
+bullishStructure = isHH or isHL
+bearishStructure = isLH or isLL
+
+if bullishStructure and not bearishStructure
+    trend := "uptrend"
+else if bearishStructure and not bullishStructure
+    trend := "downtrend"
+else
+    trend := "neutral"
+
+// =============================================================================
+// CHoCH DETECTION
+// =============================================================================
+
+var bool bullishCHoCH = false
+var bool bearishCHoCH = false
+var float chochLevel = na
+var int chochBar = na
+
+// Bearish CHoCH: In uptrend, break below last HL
+bearishCHoCHCondition = trend == "uptrend" and not na(lastSwingLow) and 
+                        close < lastSwingLow - atr * chochBreakATR
+
+// Bullish CHoCH: In downtrend, break above last LH
+bullishCHoCHCondition = trend == "downtrend" and not na(lastSwingHigh) and 
+                        close > lastSwingHigh + atr * chochBreakATR
+
+if bearishCHoCHCondition and not bearishCHoCH[1]
+    bearishCHoCH := true
+    bullishCHoCH := false
+    chochLevel := lastSwingLow
+    chochBar := bar_index
+else if bullishCHoCHCondition and not bullishCHoCH[1]
+    bullishCHoCH := true
+    bearishCHoCH := false
+    chochLevel := lastSwingHigh
+    chochBar := bar_index
+
+// =============================================================================
+// BoS DETECTION
+// =============================================================================
+
+var bool bullishBoS = false
+var bool bearishBoS = false
+var float bosLevel = na
+
+// Bullish BoS: After bullish CHoCH, new high above CHoCH level
+bullishBoSCondition = bullishCHoCH and not na(chochLevel) and 
+                      high > chochLevel + atr * bosBreakATR
+
+// Bearish BoS: After bearish CHoCH, new low below CHoCH level
+bearishBoSCondition = bearishCHoCH and not na(chochLevel) and 
+                      low < chochLevel - atr * bosBreakATR
+
+if bullishBoSCondition and not bullishBoS[1]
+    bullishBoS := true
+    bosLevel := high
+else if bearishBoSCondition and not bearishBoS[1]
+    bearishBoS := true
+    bosLevel := low
+
+// =============================================================================
+// QML PATTERN DETECTION
+// =============================================================================
+
+// Track pattern formation
+var bool patternForming = false
+var string patternType = na
+var float leftShoulder = na
+var float head = na
+var int leftShoulderBar = na
+var int headBar = na
+
+// Pattern detection logic
+if bullishCHoCH and not patternForming
+    patternForming := true
+    patternType := "bullish"
+    leftShoulder := chochLevel
+    leftShoulderBar := chochBar
+
+if bearishCHoCH and not patternForming
+    patternForming := true
+    patternType := "bearish"
+    leftShoulder := chochLevel
+    leftShoulderBar := chochBar
+
+// Find head (extreme between CHoCH and current)
+if patternForming and patternType == "bullish"
+    if low < nz(head, low)
+        head := low
+        headBar := bar_index
+
+if patternForming and patternType == "bearish"
+    if high > nz(head, high)
+        head := high
+        headBar := bar_index
+
+// Complete pattern on BoS
+bullishPatternComplete = patternForming and patternType == "bullish" and bullishBoS
+bearishPatternComplete = patternForming and patternType == "bearish" and bearishBoS
+
+// =============================================================================
+// PLOTTING
+// =============================================================================
+
+// Plot swing points
+plotshape(showSwingPoints and isSignificantHigh, style=shape.triangledown, 
+          location=location.abovebar, color=bearishColor, size=size.tiny, offset=-swingLookback)
+plotshape(showSwingPoints and isSignificantLow, style=shape.triangleup, 
+          location=location.belowbar, color=bullishColor, size=size.tiny, offset=-swingLookback)
+
+// Plot structure labels
+if showStructure and isHH
+    label.new(bar_index - swingLookback, swingHigh, "HH", style=label.style_label_down, 
+              color=bullishColor, textcolor=color.white, size=size.small)
+
+if showStructure and isHL
+    label.new(bar_index - swingLookback, swingLow, "HL", style=label.style_label_up, 
+              color=bullishColor, textcolor=color.white, size=size.small)
+
+if showStructure and isLH
+    label.new(bar_index - swingLookback, swingHigh, "LH", style=label.style_label_down, 
+              color=bearishColor, textcolor=color.white, size=size.small)
+
+if showStructure and isLL
+    label.new(bar_index - swingLookback, swingLow, "LL", style=label.style_label_up, 
+              color=bearishColor, textcolor=color.white, size=size.small)
+
+// Plot CHoCH
+if bullishCHoCHCondition and not bullishCHoCH[1]
+    label.new(bar_index, low, "CHoCH", style=label.style_label_up, 
+              color=bullishColor, textcolor=color.white, size=size.normal)
+    line.new(bar_index - 10, chochLevel, bar_index, chochLevel, 
+             color=bullishColor, style=line.style_dashed, width=2)
+
+if bearishCHoCHCondition and not bearishCHoCH[1]
+    label.new(bar_index, high, "CHoCH", style=label.style_label_down, 
+              color=bearishColor, textcolor=color.white, size=size.normal)
+    line.new(bar_index - 10, chochLevel, bar_index, chochLevel, 
+             color=bearishColor, style=line.style_dashed, width=2)
+
+// Plot completed patterns
+if showPatterns and bullishPatternComplete
+    // Draw pattern lines
+    line.new(leftShoulderBar, leftShoulder, headBar, head, 
+             color=bullishColor, width=2)
+    line.new(headBar, head, bar_index, close, 
+             color=bullishColor, width=2)
+    
+    // Entry, SL, TP levels
+    if showLevels
+        entryLevel = leftShoulder * 0.995
+        slLevel = head * 0.99
+        risk = entryLevel - slLevel
+        tpLevel = entryLevel + risk * 3
+        
+        line.new(bar_index, entryLevel, bar_index + 20, entryLevel, 
+                 color=color.blue, style=line.style_solid, width=1)
+        line.new(bar_index, slLevel, bar_index + 20, slLevel, 
+                 color=color.red, style=line.style_solid, width=1)
+        line.new(bar_index, tpLevel, bar_index + 20, tpLevel, 
+                 color=color.green, style=line.style_solid, width=1)
+        
+        label.new(bar_index + 22, entryLevel, "Entry", style=label.style_label_left, 
+                  color=color.blue, textcolor=color.white, size=size.small)
+        label.new(bar_index + 22, slLevel, "SL", style=label.style_label_left, 
+                  color=color.red, textcolor=color.white, size=size.small)
+        label.new(bar_index + 22, tpLevel, "TP", style=label.style_label_left, 
+                  color=color.green, textcolor=color.white, size=size.small)
+    
+    // Pattern label
+    label.new(headBar, head, "BULLISH\nQML", style=label.style_label_up, 
+              color=bullishColor, textcolor=color.white, size=size.large)
+    
+    // Reset pattern state
+    patternForming := false
+    bullishCHoCH := false
+    bullishBoS := false
+
+if showPatterns and bearishPatternComplete
+    // Draw pattern lines
+    line.new(leftShoulderBar, leftShoulder, headBar, head, 
+             color=bearishColor, width=2)
+    line.new(headBar, head, bar_index, close, 
+             color=bearishColor, width=2)
+    
+    // Entry, SL, TP levels
+    if showLevels
+        entryLevel = leftShoulder * 1.005
+        slLevel = head * 1.01
+        risk = slLevel - entryLevel
+        tpLevel = entryLevel - risk * 3
+        
+        line.new(bar_index, entryLevel, bar_index + 20, entryLevel, 
+                 color=color.blue, style=line.style_solid, width=1)
+        line.new(bar_index, slLevel, bar_index + 20, slLevel, 
+                 color=color.red, style=line.style_solid, width=1)
+        line.new(bar_index, tpLevel, bar_index + 20, tpLevel, 
+                 color=color.green, style=line.style_solid, width=1)
+        
+        label.new(bar_index + 22, entryLevel, "Entry", style=label.style_label_left, 
+                  color=color.blue, textcolor=color.white, size=size.small)
+        label.new(bar_index + 22, slLevel, "SL", style=label.style_label_left, 
+                  color=color.red, textcolor=color.white, size=size.small)
+        label.new(bar_index + 22, tpLevel, "TP", style=label.style_label_left, 
+                  color=color.green, textcolor=color.white, size=size.small)
+    
+    // Pattern label
+    label.new(headBar, head, "BEARISH\nQML", style=label.style_label_down, 
+              color=bearishColor, textcolor=color.white, size=size.large)
+    
+    // Reset pattern state
+    patternForming := false
+    bearishCHoCH := false
+    bearishBoS := false
+
+// =============================================================================
+// ALERTS
+// =============================================================================
+
+alertcondition(bullishPatternComplete, "Bullish QML Pattern", "Bullish QML pattern detected on {{ticker}}")
+alertcondition(bearishPatternComplete, "Bearish QML Pattern", "Bearish QML pattern detected on {{ticker}}")
+alertcondition(bullishCHoCHCondition and not bullishCHoCH[1], "Bullish CHoCH", "Bullish CHoCH on {{ticker}}")
+alertcondition(bearishCHoCHCondition and not bearishCHoCH[1], "Bearish CHoCH", "Bearish CHoCH on {{ticker}}")
+
+// =============================================================================
+// INFO TABLE
+// =============================================================================
+
+var table infoTable = table.new(position.top_right, 2, 5, bgcolor=color.new(color.black, 80))
+
+if barstate.islast
+    table.cell(infoTable, 0, 0, "QML Pattern Detector", text_color=color.white, text_size=size.normal)
+    table.cell(infoTable, 1, 0, "", text_color=color.white)
+    
+    table.cell(infoTable, 0, 1, "Trend:", text_color=color.gray, text_halign=text.align_left)
+    trendColor = trend == "uptrend" ? bullishColor : trend == "downtrend" ? bearishColor : neutralColor
+    table.cell(infoTable, 1, 1, str.upper(trend), text_color=trendColor)
+    
+    table.cell(infoTable, 0, 2, "ATR:", text_color=color.gray, text_halign=text.align_left)
+    table.cell(infoTable, 1, 2, str.tostring(atr, "#.##"), text_color=color.white)
+    
+    table.cell(infoTable, 0, 3, "Pattern:", text_color=color.gray, text_halign=text.align_left)
+    patternStatus = patternForming ? str.upper(patternType) + " forming" : "None"
+    table.cell(infoTable, 1, 3, patternStatus, text_color=color.white)
+    
+    table.cell(infoTable, 0, 4, "Last CHoCH:", text_color=color.gray, text_halign=text.align_left)
+    chochStatus = bullishCHoCH ? "Bullish" : bearishCHoCH ? "Bearish" : "None"
+    table.cell(infoTable, 1, 4, chochStatus, text_color=color.white)
+

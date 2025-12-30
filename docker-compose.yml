@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # TimescaleDB for time-series data storage
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: qml_timescaledb
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-qml_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qml_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-qml_trading}
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-qml_user} -d ${POSTGRES_DB:-qml_trading}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # QML Trading System Application
+  qml_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qml_trading_app
+    restart: unless-stopped
+    ports:
+      - "8501:8501"  # Streamlit dashboard
+      - "8000:8000"  # API (if needed)
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-qml_user}:${POSTGRES_PASSWORD:-qml_secure_password}@timescaledb:5432/${POSTGRES_DB:-qml_trading}
+      - BINANCE_API_KEY=${BINANCE_API_KEY:-}
+      - BINANCE_SECRET=${BINANCE_SECRET:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    command: ["python", "-m", "src.main"]
+
+  # Streamlit Dashboard (separate for development)
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qml_dashboard
+    restart: unless-stopped
+    ports:
+      - "8502:8501"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-qml_user}:${POSTGRES_PASSWORD:-qml_secure_password}@timescaledb:5432/${POSTGRES_DB:-qml_trading}
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./models:/app/models
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    command: ["streamlit", "run", "src/dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+volumes:
+  timescale_data:
+    driver: local
+
+networks:
+  default:
+    name: qml_network
+

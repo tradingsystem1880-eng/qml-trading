@@ -1,0 +1,53 @@
+{
+  "scan_time": "2025-12-29T01:28:53.790422",
+  "symbols_scanned": [
+    "BTC/USDT",
+    "ETH/USDT",
+    "SOL/USDT",
+    "BNB/USDT",
+    "XRP/USDT"
+  ],
+  "total_signals": 5,
+  "signals": [
+    {
+      "id": "qml_BTCUSDT_20251218_2000",
+      "symbol": "BTC/USDT",
+      "type": "BEARISH",
+      "entry": 85740.57,
+      "filter": "FAIL",
+      "vol_pctl": 0.06022603447637903
+    },
+    {
+      "id": "qml_BTCUSDT_20251222_1100",
+      "symbol": "BTC/USDT",
+      "type": "BULLISH",
+      "entry": 88952.97015,
+      "filter": "FAIL",
+      "vol_pctl": 0.06022603447637903
+    },
+    {
+      "id": "qml_SOLUSDT_20251226_0200",
+      "symbol": "SOL/USDT",
+      "type": "BULLISH",
+      "entry": 122.8427,
+      "filter": "FAIL",
+      "vol_pctl": 0.04767915256243367
+    },
+    {
+      "id": "qml_BNBUSDT_20251218_1200",
+      "symbol": "BNB/USDT",
+      "type": "BEARISH",
+      "entry": 859.82775,
+      "filter": "FAIL",
+      "vol_pctl": 0.23555688017330068
+    },
+    {
+      "id": "qml_BNBUSDT_20251221_0200",
+      "symbol": "BNB/USDT",
+      "type": "BULLISH",
+      "entry": 845.9689,
+      "filter": "FAIL",
+      "vol_pctl": 0.23555688017330068
+    }
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "main": {
+    "id": "97f136faec63eb19",
+    "type": "split",
+    "children": [
+      {
+        "id": "29ba275ced05afb9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "0ce8032a6f0c9a61",
+            "type": "leaf",
+            "state": {
+              "type": "pdf",
+              "state": {
+                "file": "QML-setup-with-results-3.pdf"
+              },
+              "icon": "lucide-file-text",
+              "title": "QML-setup-with-results-3"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "51305a4c9aab8c52",
+    "type": "split",
+    "children": [
+      {
+        "id": "59e287483e5ed684",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a70f70d75b177d69",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "5f87917792bc8222",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "c04d4aa1c9526b45",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 296.5
+  },
+  "right": {
+    "id": "95dadb0c56049da7",
+    "type": "split",
+    "children": [
+      {
+        "id": "93bef54d388f6993",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6608dca27e44834e",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Phase 1 Foundation.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Phase 1 Foundation"
+            }
+          },
+          {
+            "id": "6bb42cf9eb1219b2",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Phase 1 Foundation.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Phase 1 Foundation"
+            }
+          },
+          {
+            "id": "31b186b9446cd7e8",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "1b006f8e85adcf19",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "d5f4f69fae8f7137",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Phase 1 Foundation.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Phase 1 Foundation"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "a70f70d75b177d69",
+  "lastOpenFiles": [
+    "pattern_visualizations/ETH_USDT_4h_bullish_20251222_1200.html",
+    "pattern_visualizations/BNB_USDT_4h_overview.html",
+    "pattern_visualizations/BNB_USDT_1h_bullish_20251221_0200.html",
+    "pattern_visualizations/BNB_USDT_1h_bearish_20251218_1200.html",
+    "pattern_visualizations/SOL_USDT_4h_overview.html",
+    "pattern_visualizations/SOL_USDT_1h_bullish_20251226_0200.html",
+    "pattern_visualizations/ETH_USDT_4h_overview.html",
+    "pattern_visualizations/ETH_USDT_1h_overview.html",
+    "pattern_visualizations/BTC_USDT_4h_bullish_20251222_1200.html",
+    "pattern_visualizations/BTC_USDT_1h_bullish_20251222_1100.html",
+    "pattern_visualizations/BTC_USDT_1h_bearish_20251218_2000.html",
+    "paper_trading_logs/weekly/WEEK_1_TRACKING.md",
+    "paper_trading_logs/PAPER_TRADING_PROTOCOL.md",
+    "docs/PRE_LAUNCH_VERIFICATION_DOSSIER.md",
+    "validation/parameter_sensitivity.png",
+    "validation/regime_monte_carlo.png",
+    "docs/FINAL_STRATEGY_SPECIFICATION.md",
+    "validation/feature_analysis_report.md",
+    "validation/shap_importance_plot.png",
+    "validation/shap_summary_plot.png",
+    "validation/top_features_distribution.png",
+    "validation/feature_correlation_chart.png",
+    "validation/qml_strategy_diagnostic_report.md",
+    "validation/regime_filter_robustness_report.md",
+    "validation/phase2_regime_filter_report.md",
+    "validation/forensic_audit_report.md",
+    "validation/historical_backtest_report.md",
+    "NEXT_STEPS.md",
+    "README.md",
+    "QML PATTERN EXPLAINED.md",
+    "ROAD MAP.md",
+    "BETA DETECTION LOGIC.md",
+    "🧠 PROJECT ROAD MAP/Quant Strategy Development.md",
+    "🧠 PROJECT ROAD MAP/Phase 2 Data & Features.md",
+    "🧠 PROJECT ROAD MAP/📅  DEVELOPMENT ROADMAP.md",
+    "🧠 PROJECT ROAD MAP/Phase 3 Intelligence.md",
+    "🧠 PROJECT ROAD MAP/Phase 1 Foundation.md",
+    "💹 INDICATORS/🚀 Latent Energy (Sophisticated Breakout Engine).md",
+    "INFO.md",
+    "🧠 PROJECT ROAD MAP/Phase 4 Production.md"
+  ]
+}
