@@ -1,0 +1,16 @@
+{
+  "total_patterns": 56,
+  "bullish": 30,
+  "bearish": 26,
+  "avg_validity": 0.685,
+  "backtest": {
+    "trades": 42,
+    "wins": 28,
+    "losses": 14,
+    "win_rate": 66.7,
+    "avg_r_multiple": 0.33,
+    "total_r": 14.0,
+    "profit_factor": 1.73,
+    "max_drawdown_r": 2.0
+  }
+}

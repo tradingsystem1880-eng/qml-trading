@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "name": "atr_directional_change",
+    "description": "Price-action driven detection using ATR Directional Change. Instead of blindly iterating every N bars, this approach processes data bar-by-bar and triggers pattern detection ONLY when ATR confirms a new market extreme (swing high or swing low). This aligns software logic with market structure.",
+    "detection_mode": "atr_directional_change",
+    "parameters": {
+        "window_size": 200,
+        "atr_lookback": 14,
+        "swing_window": 5,
+        "atr_period": 14,
+        "choch_min_break_atr": 0.3,
+        "choch_confirmation_bars": 2,
+        "bos_min_break_atr": 0.5,
+        "bos_volume_spike_threshold": 1.5,
+        "min_validity_score": 0.7,
+        "min_head_depth_atr": 0.5,
+        "max_head_depth_atr": 3.0,
+        "stop_loss_atr_multiplier": 1.5,
+        "default_risk_reward": 3.0
+    },
+    "improvements": [
+        "Detection triggered at confirmed swing points, not arbitrary intervals",
+        "ATR-adaptive: Adjusts to current market volatility",
+        "More efficient: Skips consolidation periods with no structural change",
+        "More accurate: Aligned with market structure (QML = swing highs/lows)",
+        "Reduced noise: Fewer redundant pattern checks"
+    ],
+    "comparison_to_v1.1.0": {
+        "v1.1.0_method": "Fixed step_size (every 12 bars)",
+        "v2.0.0_method": "ATR extreme confirmation triggers",
+        "expected_improvement": "Fewer triggers, same or better pattern quality"
+    },
+    "source_file": "scripts/atr_detector.py",
+    "created_date": "2025-12-30"
+}

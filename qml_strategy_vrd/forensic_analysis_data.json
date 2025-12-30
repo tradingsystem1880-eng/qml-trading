@@ -1,0 +1,33 @@
+{
+  "matched_analysis": {
+    "total": 35,
+    "pattern_types": {
+      "bullish": 19,
+      "bearish": 16
+    },
+    "validity_stats": {
+      "mean": 0.674,
+      "min": 0.58,
+      "max": 0.898,
+      "std": 0.07732133104967942
+    },
+    "time_match_quality": {
+      "exact_matches": 35,
+      "within_1_hour": 35
+    },
+    "high_validity_count": 20,
+    "high_validity_pct": 57.14285714285714
+  },
+  "unmatched_analysis": {
+    "total": 84,
+    "pattern_types": {
+      "bearish": 43,
+      "bullish": 41
+    },
+    "outcome_distribution": {
+      "1": 54,
+      "0": 30
+    },
+    "win_rate": 64.28571428571429,
+    "monthly_breakdown": {
+      
