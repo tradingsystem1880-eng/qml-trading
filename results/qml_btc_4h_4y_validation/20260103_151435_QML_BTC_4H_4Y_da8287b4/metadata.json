@@ -1,0 +1,11 @@
+{
+  "experiment_id": "69669871",
+  "timestamp": "2026-01-03T15:14:35.376804",
+  "git_hash": "102fda3f",
+  "strategy_name": "QML_BTC_4H_4Y",
+  "param_hash": "da8287b4",
+  "data_start": "2021-01-04 04:00:00+00:00",
+  "data_end": "2026-01-03 00:00:00+00:00",
+  "random_seed": 42,
+  "fold_count": 4
+}

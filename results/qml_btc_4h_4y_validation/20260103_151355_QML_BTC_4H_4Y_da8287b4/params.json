@@ -1,0 +1,20 @@
+{
+  "param_grid": {
+    "min_validity_score": [
+      0.6,
+      0.7,
+      0.8
+    ],
+    "risk_reward": [
+      2.5,
+      3.0,
+      3.5
+    ],
+    "stop_loss_atr": [
+      1.0,
+      1.5,
+      2.0
+    ]
+  },
+  "metric": "sharpe_ratio"
+}

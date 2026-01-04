@@ -11,5 +11,6 @@
     "window_size": 200,
     "atr_lookback": 14,
     "min_validity_score": 0.7
-  }
+  },
+  "detection_logic": "v2.0.0_atr_directional_change"
 }

@@ -1,0 +1,33 @@
+{
+  "fold_idx": 4,
+  "train_start": "2025-11-22 10:00:00+00:00",
+  "train_end": "2025-12-21 06:00:00+00:00",
+  "test_start": "2025-12-21 12:00:00+00:00",
+  "test_end": "2026-01-02 20:00:00+00:00",
+  "optimal_params": {
+    "min_validity_score": 0.3,
+    "risk_reward": 2.0,
+    "stop_loss_atr": 1.5,
+    "risk_per_trade_pct": 1.0
+  },
+  "in_sample": {
+    "sharpe_ratio": -67923.14602411944,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 1,
+    "total_return": -42.78756015355849,
+    "avg_win_pct": 0.0,
+    "avg_loss_pct": -42.78756015355849
+  },
+  "out_of_sample": {
+    "sharpe_ratio": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 0,
+    "total_return": 0.0,
+    "avg_win_pct": 0.0,
+    "avg_loss_pct": 0.0
+  }
+}

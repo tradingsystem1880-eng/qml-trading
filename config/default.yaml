@@ -1,0 +1,90 @@
+# QML Trading System - Default Configuration
+# ==========================================
+# This file contains all tunable parameters for the trading system.
+# Override these values in strategy-specific configs under config/strategies/
+
+# Detection Parameters
+detection:
+  method: atr_directional_change  # Options: atr_directional_change, rolling_window
+  atr_period: 14                  # ATR calculation period
+  swing_window: 5                 # Swing point detection window
+  min_pattern_bars: 20            # Minimum bars for pattern formation
+  max_pattern_bars: 200           # Maximum bars for pattern formation
+  
+  # QML Pattern Specific
+  qml:
+    min_depth_ratio: 0.5          # P3 must retrace at least 50% of P1-P2
+    max_depth_ratio: 1.0          # P3 cannot exceed P1
+    confirmation_atr_mult: 0.5    # ATR multiplier for P5 confirmation
+
+# Backtest Parameters
+backtest:
+  initial_capital: 10000.0        # Starting capital in USD
+  position_size: 0.1              # Position size as fraction of capital
+  commission: 0.001               # Commission per trade (0.1%)
+  slippage: 0.0005                # Slippage estimate (0.05%)
+  
+  # Risk Management
+  risk:
+    stop_loss_atr_mult: 1.5       # Stop loss in ATR multiples
+    take_profit_atr_mult: 3.0     # Take profit in ATR multiples
+    max_positions: 1              # Maximum concurrent positions
+    max_daily_loss: 0.02          # Maximum daily loss (2%)
+
+# Validation Parameters (VRD 2.0)
+validation:
+  # Permutation Test
+  permutation:
+    n_iterations: 1000            # Number of permutations
+    significance_threshold: 0.05  # P-value threshold
+    
+  # Monte Carlo Simulation
+  monte_carlo:
+    n_simulations: 1000           # Number of MC paths
+    confidence_levels: [0.05, 0.25, 0.50, 0.75, 0.95]
+    
+  # Bootstrap Analysis
+  bootstrap:
+    n_samples: 10000              # Number of bootstrap samples
+    block_size: 5                 # Block size for stationary bootstrap
+    confidence_level: 0.95        # Confidence interval level
+    
+  # Walk-Forward
+  walk_forward:
+    n_folds: 5                    # Number of WF folds
+    is_oos_ratio: 0.7             # In-sample to out-of-sample ratio
+
+# Deployment Parameters
+deployment:
+  # Gatekeeper Thresholds
+  gatekeeper:
+    min_sharpe: 1.0               # Minimum Sharpe ratio to deploy
+    max_drawdown: 0.15            # Maximum acceptable drawdown (15%)
+    min_trades: 30                # Minimum trades for significance
+    min_win_rate: 0.4             # Minimum win rate (40%)
+    p_value_threshold: 0.05       # Statistical significance threshold
+    
+  # Paper Trading
+  paper_trading:
+    check_interval_seconds: 300   # Check every 5 minutes
+    log_trades: true              # Log all trades
+    
+  # Risk Limits
+  risk_limits:
+    max_position_usd: 1000        # Maximum position size in USD
+    max_daily_trades: 5           # Maximum trades per day
+    kill_switch_drawdown: 0.10    # Emergency stop if DD exceeds 10%
+
+# Data Parameters
+data:
+  default_symbol: BTCUSDT
+  default_timeframe: 4h
+  lookback_days: 1460             # 4 years of data
+  source: binance                 # Data source
+
+# Reporting Parameters
+reporting:
+  output_format: html             # Options: html, pdf, json
+  include_charts: true
+  chart_style: dark               # Options: dark, light
+  dpi: 150                        # Chart resolution

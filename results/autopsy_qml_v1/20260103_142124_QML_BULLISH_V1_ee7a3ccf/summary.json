@@ -1,0 +1,16 @@
+{
+  "metrics": {
+    "sharpe_ratio": 0.0,
+    "max_drawdown_pct": 0.0,
+    "win_rate": 0.0,
+    "total_trades": 0,
+    "confidence_score": 0
+  },
+  "regime_metrics": {},
+  "statistical_results": {
+    "sharpe_p_value": 1.0,
+    "sharpe_ci_lower": 0.0,
+    "sharpe_ci_upper": 0.0
+  },
+  "fold_results_summary": {}
+}

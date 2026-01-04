@@ -1,0 +1,69 @@
+{
+  "executive_summary": {
+    "verdict": "REJECT",
+    "verdict_class": "danger",
+    "verdict_icon": "\u274c",
+    "confidence_score": 45,
+    "strategy_name": "QML_BTC_4H_4Y",
+    "timestamp": "2026-01-03T15:43:21.927429",
+    "oos_sharpe": 5.7086561920857175,
+    "oos_max_dd": 0.0,
+    "total_trades": 2
+  },
+  "verdict": {
+    "verdicts": [
+      {
+        "type": "FATAL",
+        "category": "Statistical Significance",
+        "message": "Strategy indistinguishable from noise (p-value: 1.0000 > 0.1)",
+        "recommendation": "Reject strategy - no statistical edge detected"
+      },
+      {
+        "type": "PASS",
+        "category": "Performance",
+        "message": "Strong Sharpe ratio (5.709)",
+        "recommendation": null
+      },
+      {
+        "type": "PASS",
+        "category": "Stability",
+        "message": "Stable parameters (0.96)",
+        "recommendation": null
+      }
+    ],
+    "fatal_count": 1,
+    "warning_count": 0,
+    "overall_pass": false
+  },
+  "statistical_analysis": {
+    "confidence_intervals": {
+      "sharpe_ci_lower": 0.0,
+      "sharpe_ci_upper": 0.0,
+      "win_rate_ci_lower": 0.0,
+      "win_rate_ci_upper": 0.0
+    }
+  },
+  "risk_analysis": {
+    "max_drawdown": 0.0
+  },
+  "regime_analysis": {},
+  "recommendations": [
+    "\u274c Strategy not ready for deployment",
+    "Review statistical significance",
+    "Consider alternative parameter configurations",
+    "Consider regime-based position sizing"
+  ],
+  "warnings": [
+    {
+      "type": "DATA",
+      "message": "Limited trade sample (2 trades)",
+      "severity": "medium"
+    }
+  ],
+  "metadata": {
+    "experiment_id": "d73d6cf2",
+    "strategy_name": "QML_BTC_4H_4Y",
+    "generated_at": "2026-01-03T15:43:23.893616",
+    "generator_version": "1.0.0"
+  }
+}

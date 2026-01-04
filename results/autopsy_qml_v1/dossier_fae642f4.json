@@ -1,0 +1,63 @@
+{
+  "executive_summary": {
+    "verdict": "REJECT",
+    "verdict_class": "danger",
+    "verdict_icon": "\u274c",
+    "confidence_score": 0,
+    "strategy_name": "QML_BULLISH_V1",
+    "timestamp": "2026-01-03T14:21:24.683715",
+    "oos_sharpe": 0.0,
+    "oos_max_dd": 0.0,
+    "total_trades": 0
+  },
+  "verdict": {
+    "verdicts": [
+      {
+        "type": "FATAL",
+        "category": "Statistical Significance",
+        "message": "Strategy indistinguishable from noise (p-value: 1.0000 > 0.1)",
+        "recommendation": "Reject strategy - no statistical edge detected"
+      },
+      {
+        "type": "FATAL",
+        "category": "Performance",
+        "message": "Sharpe ratio too low (0.000 < 0.5)",
+        "recommendation": "Insufficient risk-adjusted return"
+      }
+    ],
+    "fatal_count": 2,
+    "warning_count": 0,
+    "overall_pass": false
+  },
+  "statistical_analysis": {
+    "confidence_intervals": {
+      "sharpe_ci_lower": 0.0,
+      "sharpe_ci_upper": 0.0,
+      "win_rate_ci_lower": 0.0,
+      "win_rate_ci_upper": 0.0
+    }
+  },
+  "risk_analysis": {
+    "max_drawdown": 0.0
+  },
+  "regime_analysis": {},
+  "recommendations": [
+    "\u274c Strategy not ready for deployment",
+    "Review statistical significance",
+    "Consider alternative parameter configurations",
+    "Explore additional filters to improve Sharpe"
+  ],
+  "warnings": [
+    {
+      "type": "DATA",
+      "message": "Limited trade sample (0 trades)",
+      "severity": "medium"
+    }
+  ],
+  "metadata": {
+    "experiment_id": "fae642f4",
+    "strategy_name": "QML_BULLISH_V1",
+    "generated_at": "2026-01-03T14:21:25.026286",
+    "generator_version": "1.0.0"
+  }
+}

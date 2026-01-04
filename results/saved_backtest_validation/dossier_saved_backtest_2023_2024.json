@@ -1,0 +1,87 @@
+{
+  "executive_summary": {
+    "verdict": "DEPLOY",
+    "verdict_class": "success",
+    "verdict_icon": "\u2705",
+    "confidence_score": 85,
+    "strategy_name": "QML (Validated Backtest)",
+    "timestamp": "2026-01-04T10:45:50.760211",
+    "oos_sharpe": 4.320589552173609,
+    "oos_max_dd": 14.948048761703832,
+    "total_trades": 43
+  },
+  "verdict": {
+    "verdicts": [
+      {
+        "type": "FATAL",
+        "category": "Statistical Significance",
+        "message": "Strategy indistinguishable from noise (p-value: 0.6776 > 0.1)",
+        "recommendation": "Reject strategy - no statistical edge detected"
+      },
+      {
+        "type": "PASS",
+        "category": "Performance",
+        "message": "Strong Sharpe ratio (4.321)",
+        "recommendation": null
+      },
+      {
+        "type": "PASS",
+        "category": "Risk",
+        "message": "Acceptable risk profile (0.0%)",
+        "recommendation": null
+      }
+    ],
+    "fatal_count": 1,
+    "warning_count": 0,
+    "overall_pass": false
+  },
+  "statistical_analysis": {
+    "permutation_test": {
+      "actual_sharpe": 0.2689881562646684,
+      "p_value": 0.6776,
+      "percentile": 32.24,
+      "n_permutations": 10000
+    },
+    "monte_carlo": {
+      "n_simulations": 50000,
+      "var_95": 0.24776593244456832,
+      "var_99": 0.29978197060663064,
+      "expected_shortfall": 0.2798916666716014,
+      "kill_switch_prob": 0.0
+    },
+    "confidence_intervals": {
+      "sharpe_ci_lower": 0.9166291050830533,
+      "sharpe_ci_upper": 8.63537816655654,
+      "win_rate_ci_lower": 0.5813953488372093,
+      "win_rate_ci_upper": 0.7441860465116279
+    }
+  },
+  "risk_analysis": {
+    "max_drawdown": 14.948048761703832,
+    "var_95": 0.24776593244456832,
+    "var_99": 0.29978197060663064,
+    "expected_shortfall_95": 0.2798916666716014,
+    "time_to_recovery_mean": 6.61916,
+    "kill_switch_prob": 0.0
+  },
+  "regime_analysis": {},
+  "recommendations": [
+    "\u2705 Strategy approved for paper trading",
+    "Start with 25% of target position size",
+    "Monitor for 30 days before scaling",
+    "Consider regime-based position sizing"
+  ],
+  "warnings": [
+    {
+      "type": "DATA",
+      "message": "Limited trade sample (43 trades)",
+      "severity": "medium"
+    }
+  ],
+  "metadata": {
+    "experiment_id": "saved_backtest_2023_2024",
+    "strategy_name": "QML (Validated Backtest)",
+    "generated_at": "2026-01-04T10:45:50.760298",
+    "generator_version": "1.0.0"
+  }
+}

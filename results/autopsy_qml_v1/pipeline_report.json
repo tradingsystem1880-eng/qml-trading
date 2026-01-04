@@ -1,0 +1,49 @@
+{
+  "experiment_id": "44b0e622",
+  "strategy_name": "QML_BULLISH_V1",
+  "timestamp": "2026-01-03T14:22:42.092450",
+  "overall_verdict": "REJECT",
+  "confidence_score": 20,
+  "verdict_reasons": [
+    "Poor Sharpe (0.00)",
+    "Highly stable parameters"
+  ],
+  "metrics": {
+    "oos_sharpe": 0.0,
+    "oos_max_dd": 0.0,
+    "oos_win_rate": 0.0,
+    "total_trades": 0
+  },
+  "statistical": {
+    "sharpe_p_value": 1.0,
+    "sharpe_ci": [
+      0.0,
+      0.0
+    ],
+    "win_rate_ci": [
+      0.0,
+      0.0
+    ]
+  },
+  "pipeline": {
+    "total_duration_seconds": 0.412149,
+    "stages": {
+      "feature_engineering": {
+        "success": true,
+        "duration": 7e-06
+      },
+      "regime_detection": {
+        "success": true,
+        "duration": 0.132454
+      },
+      "walk_forward": {
+        "success": true,
+        "duration": 0.27967
+      },
+      "statistical_testing": {
+        "success": true,
+        "duration": 1.8e-05
+      }
+    }
+  }
+}

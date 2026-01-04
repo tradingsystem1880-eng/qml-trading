@@ -1,0 +1,32 @@
+{
+  "fold_idx": 0,
+  "train_start": "2021-01-04 04:00:00+00:00",
+  "train_end": "2021-11-15 20:00:00+00:00",
+  "test_start": "2021-11-20 00:00:00+00:00",
+  "test_end": "2022-04-04 08:00:00+00:00",
+  "optimal_params": {
+    "min_validity_score": 0.6,
+    "risk_reward": 2.5,
+    "stop_loss_atr": 1.0
+  },
+  "in_sample": {
+    "sharpe_ratio": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 0,
+    "total_return": 0.0,
+    "avg_win_pct": 0.0,
+    "avg_loss_pct": 0.0
+  },
+  "out_of_sample": {
+    "sharpe_ratio": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 0,
+    "total_return": 0.0,
+    "avg_win_pct": 0.0,
+    "avg_loss_pct": 0.0
+  }
+}

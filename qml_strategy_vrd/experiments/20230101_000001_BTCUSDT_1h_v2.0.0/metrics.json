@@ -12,5 +12,8 @@
     "total_r": 14.0,
     "profit_factor": 1.73,
     "max_drawdown_r": 2.0
-  }
+  },
+  "total_trades": 42,
+  "sharpe_ratio": 2.45,
+  "detection_logic": "v2.0.0_atr_directional_change"
 }

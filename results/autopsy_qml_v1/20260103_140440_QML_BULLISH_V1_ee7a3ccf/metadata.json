@@ -1,0 +1,11 @@
+{
+  "experiment_id": "c4a8b4b3",
+  "timestamp": "2026-01-03T14:04:40.628310",
+  "git_hash": "102fda3f",
+  "strategy_name": "QML_BULLISH_V1",
+  "param_hash": "ee7a3ccf",
+  "data_start": "2021-01-04 02:00:00+00:00",
+  "data_end": "2026-01-03 01:00:00+00:00",
+  "random_seed": 42,
+  "fold_count": 5
+}

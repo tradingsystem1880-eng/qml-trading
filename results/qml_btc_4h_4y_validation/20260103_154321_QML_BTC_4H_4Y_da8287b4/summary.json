@@ -1,0 +1,23 @@
+{
+  "metrics": {
+    "sharpe_ratio": 5.7086561920857175,
+    "max_drawdown_pct": 0.0,
+    "win_rate": 0.25,
+    "total_trades": 2,
+    "confidence_score": 45
+  },
+  "regime_metrics": {},
+  "statistical_results": {
+    "sharpe_p_value": 1.0,
+    "sharpe_ci_lower": 0.0,
+    "sharpe_ci_upper": 0.0
+  },
+  "fold_results_summary": {
+    "n_folds": 4,
+    "oos_sharpe_mean": 5.7086561920857175,
+    "oos_sharpe_std": 9.887682567635139,
+    "is_sharpe_mean": 117973.03424542733,
+    "is_sharpe_std": 204348.90873765494,
+    "is_oos_ratio": 4.838950043625742e-05
+  }
+}

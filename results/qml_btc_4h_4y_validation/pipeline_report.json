@@ -1,0 +1,49 @@
+{
+  "experiment_id": "d73d6cf2",
+  "strategy_name": "QML_BTC_4H_4Y",
+  "timestamp": "2026-01-03T15:43:21.927429",
+  "overall_verdict": "REJECT",
+  "confidence_score": 45,
+  "verdict_reasons": [
+    "Excellent Sharpe (5.71)",
+    "Highly stable parameters"
+  ],
+  "metrics": {
+    "oos_sharpe": 5.7086561920857175,
+    "oos_max_dd": 0.0,
+    "oos_win_rate": 0.25,
+    "total_trades": 2
+  },
+  "statistical": {
+    "sharpe_p_value": 1.0,
+    "sharpe_ci": [
+      0.0,
+      0.0
+    ],
+    "win_rate_ci": [
+      0.0,
+      0.0
+    ]
+  },
+  "pipeline": {
+    "total_duration_seconds": 1.9415120000000001,
+    "stages": {
+      "feature_engineering": {
+        "success": true,
+        "duration": 0.278742
+      },
+      "regime_detection": {
+        "success": true,
+        "duration": 0.231997
+      },
+      "walk_forward": {
+        "success": true,
+        "duration": 1.430757
+      },
+      "statistical_testing": {
+        "success": true,
+        "duration": 1.6e-05
+      }
+    }
+  }
+}
