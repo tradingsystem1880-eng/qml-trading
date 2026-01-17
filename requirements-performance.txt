@@ -1,0 +1,38 @@
+# Performance Optimization Packages for QML Dashboard
+# Install with: pip install -r requirements-performance.txt
+
+# ============================================================================
+# JSON Performance (20x faster than standard json)
+# ============================================================================
+orjson>=3.10.0          # Ultra-fast JSON encoding/decoding
+
+# ============================================================================
+# DataFrame Performance
+# ============================================================================
+bottleneck>=1.3.7       # Accelerated NumPy array operations
+pyarrow>=15.0.0         # Fast columnar data (you have 21.0 ✅)
+
+# ============================================================================
+# Database Performance
+# ============================================================================
+sqlalchemy>=2.0.0       # Better connection pooling (you have 2.0.45 ✅)
+aiosqlite>=0.19.0       # Async SQLite for non-blocking queries
+
+# ============================================================================
+# Streamlit Extensions
+# ============================================================================
+streamlit-extras>=0.4.0           # Additional caching utilities
+streamlit-autorefresh>=1.0.0      # Better refresh control
+
+# ============================================================================
+# Profiling & Monitoring (optional, for debugging)
+# ============================================================================
+pympler>=1.1            # Memory profiling
+memory-profiler>=0.61   # Track memory usage line-by-line
+py-spy>=0.4.0           # Sampling profiler (no overhead)
+
+# ============================================================================
+# Caching Backend (optional, for distributed caching)
+# ============================================================================
+# redis>=5.0.0          # If you want Redis-backed caching
+# diskcache>=5.6.0      # File-based persistent cache

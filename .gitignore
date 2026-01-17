@@ -19,12 +19,14 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 venv/
 env/
 ENV/
 .venv
+.python-version
 
 # IDE
 .vscode/
@@ -36,28 +38,57 @@ ENV/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb_checkpoints/
 
 # Environment variables
 .env
 .env.local
+.env.*.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
 # Logs
-logs/*.log
+logs/
 *.log
 
-# Data files (optional - uncomment if you don't want to track large CSV files)
-# data/*.csv
-# *.csv
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
-# Model files (optional - uncomment if models are too large)
-# models/*.pkl
-# *.pkl
+# Large data files (keep structure, ignore large files)
+data/raw/*.csv
+data/raw/*.parquet
+data/processed/**/*.parquet
+data/processed/**/*.csv
+data/market/*.csv
+data/market/*.parquet
 
-# Paper trading logs (optional - uncomment if you don't want to track)
-# paper_trading_logs/
+# Model files (can be large)
+models/*.pkl
+models/*.h5
+models/*.pth
+models/*.onnx
+*.pkl
+*.h5
+*.pth
 
-# Pattern visualizations (optional - uncomment if HTML files are too large)
-# pattern_visualizations/*.html
+# Results and outputs (keep structure, selective tracking)
+results/backtests/*.csv
+results/charts/*.png
+results/charts/*.html
+results/reports/*.html
+results/experiments/*.csv
+results/validation/*.html
+
+# Paper trading logs
+paper_trading_logs/daily/*.json
+paper_trading_logs/weekly/*.json
 
 # Cursor
 .cursor/
@@ -66,4 +97,25 @@ logs/*.log
 *.pid
 *.seed
 *.pid.lock
+docker-compose.override.yml
+
+# OS
+Thumbs.db
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~.nib
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
 

@@ -1,0 +1,13 @@
+{
+  "experiment_id": "20231230_130000_ETHUSDT_1h_v1.0.0",
+  "detection_logic_version": "v1.0.0_flawed_singlepass",
+  "symbol": "ETH/USDT",
+  "timeframe": "1h",
+  "data_range": {
+    "start": "2023-01-20",
+    "end": "2025-12-21"
+  },
+  "run_timestamp": "2025-12-30T13:41:20.852794",
+  "notes": "Extracted from comprehensive_features.csv using v1.0.0 single-pass logic",
+  "patterns_detected": 168
+}

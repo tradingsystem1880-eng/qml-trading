@@ -10,7 +10,6 @@ Version: 1.0.0
 """
 
 import os
-import sys
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -25,10 +24,8 @@ except ImportError:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)-8s | %(message)s')
     logger = logging.getLogger(__name__)
 
-# Add project root to path for imports
+# Project root for dynamic paths
 PROJECT_ROOT = Path(__file__).parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # =============================================================================
@@ -41,8 +38,44 @@ DEFAULT_TIMEFRAMES = ["1h", "4h"]
 DEFAULT_YEARS = 5
 DEFAULT_ATR_PERIOD = 14
 
-# Output directory
-DATA_DIR = PROJECT_ROOT / "data" / "processed" / "BTC"
+# Base output directory (symbol-specific subdirs created dynamically)
+DATA_DIR_BASE = PROJECT_ROOT / "data" / "processed"
+
+# Legacy path for backward compatibility
+DATA_DIR = DATA_DIR_BASE / "BTC"
+
+
+def normalize_symbol(symbol: str) -> str:
+    """
+    Normalize symbol to filesystem-safe format.
+    
+    Examples:
+        "BTC/USDT" -> "BTCUSDT"
+        "ETH/USDT" -> "ETHUSDT"
+        "BTCUSDT"  -> "BTCUSDT"
+    """
+    return symbol.replace("/", "").replace("-", "").upper()
+
+
+def get_symbol_data_dir(symbol: str = DEFAULT_SYMBOL) -> Path:
+    """
+    Get the data directory for a specific symbol.
+    
+    DETERMINISTIC: Always returns the normalized path.
+    No fallback logic - if data doesn't exist, caller must handle it.
+    
+    Args:
+        symbol: Trading pair (e.g., 'BTC/USDT' or 'BTCUSDT')
+        
+    Returns:
+        Path to symbol's data directory (e.g., data/processed/BTCUSDT/)
+        
+    Note:
+        After migration, all symbols use normalized format (BTCUSDT, ETHUSDT).
+        Run scripts/migrate_data_to_symbol_folders.py to migrate legacy BTC/ folder.
+    """
+    normalized = normalize_symbol(symbol)
+    return DATA_DIR_BASE / normalized
 
 
 # =============================================================================
@@ -163,19 +196,19 @@ def clean_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
 # DATA FETCHING
 # =============================================================================
 
-def fetch_btc_ohlcv(
-    timeframe: str,
-    years: int = DEFAULT_YEARS,
+def fetch_ohlcv(
     symbol: str = DEFAULT_SYMBOL,
+    timeframe: str = "4h",
+    years: int = DEFAULT_YEARS,
     exchange_id: str = "binance"
 ) -> pd.DataFrame:
     """
-    Fetch BTC OHLCV data from exchange.
+    Fetch OHLCV data from exchange for any symbol.
     
     Args:
+        symbol: Trading pair (e.g., 'BTC/USDT', 'ETH/USDT')
         timeframe: Candle timeframe ('1h' or '4h')
         years: Number of years of historical data
-        symbol: Trading pair symbol
         exchange_id: CCXT exchange ID
         
     Returns:
@@ -280,6 +313,7 @@ def fetch_btc_ohlcv(
 # =============================================================================
 
 def build_master_store(
+    symbol: str = DEFAULT_SYMBOL,
     timeframes: Optional[List[str]] = None,
     years: int = DEFAULT_YEARS,
     atr_period: int = DEFAULT_ATR_PERIOD,
@@ -287,28 +321,30 @@ def build_master_store(
     dry_run: bool = False
 ) -> dict:
     """
-    Build the Master Data Store for BTC backtesting.
+    Build the Master Data Store for any symbol.
     
     Fetches OHLCV data, cleans it, calculates ATR, and saves to Parquet files.
     
     Args:
+        symbol: Trading pair (e.g., 'BTC/USDT', 'ETH/USDT')
         timeframes: List of timeframes to fetch (default: ['1h', '4h'])
         years: Years of historical data
         atr_period: ATR calculation period
-        output_dir: Output directory (default: data/processed/BTC/)
+        output_dir: Output directory (default: data/processed/{SYMBOL}/)
         dry_run: If True, only fetch 30 days of data for testing
         
     Returns:
         Dictionary with status and file paths
     """
     timeframes = timeframes or DEFAULT_TIMEFRAMES
-    output_dir = output_dir or DATA_DIR
+    output_dir = output_dir or get_symbol_data_dir(symbol)
     
     # Create output directory
     output_dir.mkdir(parents=True, exist_ok=True)
     
     results = {
         'success': True,
+        'symbol': symbol,
         'files': {},
         'stats': {}
     }
@@ -318,14 +354,16 @@ def build_master_store(
         years = 0.1  # ~36 days
         logger.info("🧪 DRY RUN MODE: Fetching only 30 days of data")
     
+    logger.info(f"📊 Building master store for {symbol}")
+    
     for tf in timeframes:
         logger.info(f"\n{'='*60}")
-        logger.info(f"Processing {tf} timeframe")
+        logger.info(f"Processing {symbol} {tf} timeframe")
         logger.info(f"{'='*60}")
         
         try:
-            # Fetch data
-            df = fetch_btc_ohlcv(timeframe=tf, years=years)
+            # Fetch data (using renamed function)
+            df = fetch_ohlcv(symbol=symbol, timeframe=tf, years=years)
             
             # Clean data
             df = clean_ohlcv(df)
@@ -369,6 +407,7 @@ def build_master_store(
 
 def load_master_data(
     timeframe: str,
+    symbol: str = DEFAULT_SYMBOL,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     data_dir: Optional[Path] = None
@@ -378,20 +417,52 @@ def load_master_data(
     
     Args:
         timeframe: Timeframe to load ('1h' or '4h')
+        symbol: Trading pair (e.g., 'BTC/USDT', 'ETH/USDT')
         start_time: Optional start filter
         end_time: Optional end filter
-        data_dir: Data directory (default: data/processed/BTC/)
+        data_dir: Data directory (overrides symbol-based path if provided)
         
     Returns:
         DataFrame with OHLCV + ATR data
+        
+    Example:
+        # Load BTC data (default)
+        df = load_master_data('4h')
+        
+        # Load ETH data
+        df = load_master_data('4h', symbol='ETH/USDT')
     """
-    data_dir = data_dir or DATA_DIR
+    # Use provided data_dir or derive from symbol
+    if data_dir is None:
+        data_dir = get_symbol_data_dir(symbol)
+    
+    file_path = data_dir / f"{timeframe}_master.parquet"
+    
+    if not data_dir.exists():
+        normalized = normalize_symbol(symbol)
+        raise FileNotFoundError(
+            f"Data for {symbol} not found.\n"
+            f"Expected directory: {data_dir}\n"
+            f"\n"
+            f"To fetch this data, run:\n"
+            f"  python -m src.data_engine --symbol {symbol} --timeframes {timeframe}\n"
+            f"\n"
+            f"Or in Python:\n"
+            f"  from src.data_engine import build_master_store\n"
+            f"  build_master_store(symbol='{symbol}', timeframes=['{timeframe}'])"
+        )
+    
     file_path = data_dir / f"{timeframe}_master.parquet"
     
     if not file_path.exists():
+        available_files = list(data_dir.glob("*.parquet"))
+        available_str = ", ".join(f.stem.replace("_master", "") for f in available_files) if available_files else "none"
         raise FileNotFoundError(
-            f"Master data not found: {file_path}\n"
-            f"Run: python -m src.data_engine to build the Master Data Store"
+            f"Timeframe '{timeframe}' not found for {symbol}.\n"
+            f"Available timeframes: {available_str}\n"
+            f"\n"
+            f"To fetch this timeframe, run:\n"
+            f"  python -m src.data_engine --symbol {symbol} --timeframes {timeframe}"
         )
     
     df = pd.read_parquet(file_path)
@@ -421,7 +492,12 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description="Build the Master Data Store for BTC backtesting"
+        description="Build the Master Data Store for backtesting"
+    )
+    parser.add_argument(
+        '--symbol', '-s',
+        default='BTC/USDT',
+        help='Trading pair symbol (default: BTC/USDT). Examples: ETH/USDT, SOL/USDT'
     )
     parser.add_argument(
         '--timeframes', '-t',
@@ -450,7 +526,7 @@ def main():
         '--output-dir', '-o',
         type=Path,
         default=None,
-        help='Output directory (default: data/processed/BTC/)'
+        help='Output directory (default: data/processed/{SYMBOL}/)'
     )
     
     args = parser.parse_args()
@@ -469,10 +545,11 @@ def main():
         pass
     
     logger.info("="*60)
-    logger.info("🏗️  MASTER DATA STORE BUILDER")
+    logger.info(f"🏗️  MASTER DATA STORE BUILDER - {args.symbol}")
     logger.info("="*60)
     
     results = build_master_store(
+        symbol=args.symbol,
         timeframes=args.timeframes,
         years=args.years,
         atr_period=args.atr_period,
@@ -482,7 +559,7 @@ def main():
     
     logger.info("\n" + "="*60)
     if results['success']:
-        logger.info("✅ Master Data Store build complete!")
+        logger.info(f"✅ Master Data Store build complete for {args.symbol}!")
         for tf, path in results['files'].items():
             if path:
                 stats = results['stats'][tf]

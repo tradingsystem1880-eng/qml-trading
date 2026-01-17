@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', sans-serif;
+            background: #0F1419;
+            color: #D9D9D9;
+        }
+        
+        #chart-container {
+            width: 100%;
+            height: 600px;
+            position: relative;
+        }
+        
+        .chart-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #D9D9D9;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .pattern-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(30, 37, 46, 0.95);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 10;
+            pointer-events: none;
+            border-left: 3px solid #38BDF8;
+        }
+        
+        .pattern-info div {
+            margin-bottom: 6px;
+        }
+        
+        .pattern-info div:last-child {
+            margin-bottom: 0;
+        }
+        
+        .pattern-info strong {
+            color: #38BDF8;
+            margin-right: 8px;
+        }
+        
+        .bullish { color: #22c55e; }
+        .bearish { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div id="chart-container">
+        <div class="chart-title">{{ CHART_TITLE }}</div>
+        <div class="pattern-info" id="pattern-info"></div>
+    </div>
+    
+    <script>
+        // Configuration from Python
+        const config = {{ CONFIG_JSON }};
+        
+        console.log('Initializing TradingView chart with config:', config);
+        
+        // Create chart
+        const chartContainer = document.getElementById('chart-container');
+        const chart = LightweightCharts.createChart(chartContainer, {
+            layout: config.theme.layout,
+            grid: config.theme.grid,
+            crosshair: config.theme.crosshair,
+            priceScale: config.theme.priceScale,
+            timeScale: config.theme.timeScale,
+            width: chartContainer.clientWidth,
+            height: 600,
+            handleScroll: {
+                mouseWheel: true,
+                pressedMouseMove: true,
+                horzTouchDrag: true,
+                vertTouchDrag: true,
+            },
+            handleScale: {
+                axisPressedMouseMove: true,
+                mouseWheel: true,
+                pinch: true,
+            },
+        });
+        
+        // Add candlestick series
+        const candlestickSeries = chart.addCandlestickSeries({
+            upColor: '#22c55e',
+            downColor: '#ef4444',
+            borderUpColor: '#22c55e',
+            borderDownColor: '#ef4444',
+            wickUpColor: '#22c55e',
+            wickDownColor: '#ef4444',
+        });
+        
+        candlestickSeries.setData(config.candlesticks);
+        console.log('Loaded', config.candlesticks.length, 'candlesticks');
+        
+        // Add volume series
+        if (config.volume && config.volume.length > 0) {
+            const volumeSeries = chart.addHistogramSeries({
+                color: '#26a69a',
+                priceFormat: {
+                    type: 'volume',
+                },
+                priceScaleId: '',
+                scaleMargins: {
+                    top: 0.8,
+                    bottom: 0,
+                },
+            });
+            
+            volumeSeries.setData(config.volume);
+            console.log('Loaded', config.volume.length, 'volume bars');
+        }
+        
+        // Add markers (pattern labels: BOS, L, S, R)
+        if (config.markers && config.markers.length > 0) {
+            candlestickSeries.setMarkers(config.markers);
+            console.log('Added', config.markers.length, 'markers');
+        }
+        
+        // Add trend lines
+        if (config.lines && config.lines.length > 0) {
+            config.lines.forEach((lineConfig, index) => {
+                const lineSeries = chart.addLineSeries({
+                    color: lineConfig.color,
+                    lineWidth: lineConfig.width,
+                    lineStyle: lineConfig.style,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    crosshairMarkerVisible: false,
+                });
+                
+                lineSeries.setData(lineConfig.data);
+                console.log('Added trend line', index + 1);
+            });
+        }
+        
+        // Add horizontal zones (support/resistance)
+        if (config.zones && config.zones.length > 0) {
+            config.zones.forEach((zone, index) => {
+                // Create price lines for top and bottom of zone
+                candlestickSeries.createPriceLine({
+                    price: zone.high,
+                    color: zone.color,
+                    lineWidth: 1,
+                    lineStyle: 2, // dashed
+                    axisLabelVisible: true,
+                    title: zone.title || '',
+                });
+                
+                candlestickSeries.createPriceLine({
+                    price: zone.low,
+                    color: zone.color,
+                    lineWidth: 1,
+                    lineStyle: 2, // dashed
+                    axisLabelVisible: true,
+                    title: '',
+                });
+                
+                console.log('Added zone', index + 1, zone.title);
+            });
+        }
+        
+        // Update pattern info panel
+        if (config.patternInfo) {
+            const infoPanel = document.getElementById('pattern-info');
+            const info = config.patternInfo;
+            const typeClass = info.type === 'bullish' ? 'bullish' : 'bearish';
+            
+            infoPanel.innerHTML = `
+                <div><strong>Type:</strong> <span class="${typeClass}">${info.type.toUpperCase()}</span></div>
+                <div><strong>Validity:</strong> ${info.validity}%</div>
+                <div><strong>Entry:</strong> $${info.entry}</div>
+                <div><strong>R:R:</strong> ${info.riskReward}</div>
+            `;
+        }
+        
+        // Fit content
+        chart.timeScale().fitContent();
+        
+        // Responsive handling
+        const resizeObserver = new ResizeObserver(entries => {
+            const { width } = entries[0].contentRect;
+            chart.applyOptions({ width });
+        });
+        
+        resizeObserver.observe(chartContainer);
+        
+        console.log('Chart initialization complete');
+    </script>
+</body>
+</html>

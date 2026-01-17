@@ -1,381 +1,224 @@
 """
-Monte Carlo Simulation for Strategy Risk Analysis
-==================================================
-Path-dependent analysis with 50,000+ simulated equity curves
-for risk metrics like VaR, expected shortfall, and kill switch analysis.
+Monte Carlo Simulator
+=====================
+VRD 2.0 Module 3B: Risk Analysis via Simulation
+
+Simulates thousands of equity paths by resampling trades
+to understand:
+- Value at Risk (VaR)
+- Conditional VaR (CVaR / Expected Shortfall)
+- Risk of Ruin probability
+- Confidence intervals on final equity
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
-
 import numpy as np
-from loguru import logger
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+from src.validation.base import BaseValidator, ValidationResult, ValidationStatus
 
 
 @dataclass
-class MonteCarloResult:
-    """Result of Monte Carlo simulation."""
-    
-    # Simulated paths
-    equity_paths: np.ndarray        # (n_sims, n_steps)
-    max_drawdowns: np.ndarray       # Max DD for each simulation
-    final_returns: np.ndarray       # Final return for each simulation
-    
-    # Value at Risk
-    var_95: float                   # 95% VaR for max drawdown
-    var_99: float                   # 99% VaR for max drawdown
-    expected_shortfall_95: float    # Expected shortfall (CVaR) at 95%
-    
-    # Recovery analysis
-    time_to_recovery_mean: float
-    time_to_recovery_95: float      # 95th percentile recovery time
-    
-    # Kill switch analysis
-    kill_switch_prob: float         # P(max DD > threshold)
-    kill_switch_threshold: float
-    
-    # Configuration
-    n_simulations: int
-    initial_capital: float
-    
-    @property
-    def median_final_return(self) -> float:
-        """Median final return across simulations."""
-        return float(np.median(self.final_returns))
-    
-    @property
-    def worst_case_return(self) -> float:
-        """1st percentile (worst case) final return."""
-        return float(np.percentile(self.final_returns, 1))
-    
-    @property
-    def best_case_return(self) -> float:
-        """99th percentile (best case) final return."""
-        return float(np.percentile(self.final_returns, 99))
+class MonteCarloConfig:
+    """Configuration for Monte Carlo simulation."""
+    n_simulations: int = 1000
+    n_trades_per_sim: int = 100  # Or use actual trade count
+    initial_capital: float = 10000.0
+    var_confidence: float = 0.95  # VaR at 95% confidence
+    risk_of_ruin_threshold: float = 0.5  # 50% drawdown = ruin
 
 
-class MonteCarloSimulator:
+class MonteCarloSim(BaseValidator):
     """
-    Monte Carlo Simulation for Strategy Risk Analysis.
+    Monte Carlo simulation for risk analysis.
     
-    Generates 50,000+ simulated equity curves via:
-    - Trade sequence randomization
-    - Return distribution bootstrapping
-    - Volatility-adjusted path generation
+    How it works:
+    1. Take actual trade returns from backtest
+    2. Resample (with replacement) to create N simulated equity paths
+    3. Calculate risk metrics across all simulations:
+       - Value at Risk (VaR): Worst expected loss at X% confidence
+       - CVaR: Average of losses beyond VaR
+       - Risk of Ruin: Probability of hitting ruin threshold
+       - Drawdown distribution
     
-    Outputs critical risk metrics for deployment decisions.
+    Usage:
+        sim = MonteCarloSim()
+        result = sim.validate(backtest_result, trades=trades_list)
+        
+        print(f"VaR (95%): {result.metrics['var_95']:.2f}%")
+        print(f"Risk of Ruin: {result.metrics['risk_of_ruin']:.2%}")
     """
     
-    def __init__(
+    @property
+    def name(self) -> str:
+        return "monte_carlo"
+    
+    def get_default_config(self) -> Dict[str, Any]:
+        return {
+            'n_simulations': 1000,
+            'n_trades_per_sim': None,  # None = use actual trade count
+            'initial_capital': 10000.0,
+            'var_confidence': 0.95,
+            'risk_of_ruin_threshold': 0.5
+        }
+    
+    def validate(
         self,
-        n_simulations: int = 50000,
-        kill_switch_threshold: float = 0.20,
-        random_seed: Optional[int] = None
-    ):
+        backtest_result: Dict[str, Any],
+        trades: Optional[List[Dict[str, Any]]] = None
+    ) -> ValidationResult:
         """
-        Initialize Monte Carlo simulator.
+        Run Monte Carlo simulation on backtest results.
         
         Args:
-            n_simulations: Number of simulations (min 50,000 recommended)
-            kill_switch_threshold: Drawdown threshold for kill switch (e.g., 0.20 = 20%)
-            random_seed: Optional seed for reproducibility
-        """
-        if n_simulations < 10000:
-            logger.warning(
-                f"n_simulations={n_simulations} is low. "
-                "Consider using at least 50,000 for reliable VaR estimates."
-            )
+            backtest_result: Results from BacktestEngine
+            trades: List of trade dictionaries with 'pnl_pct' field
         
-        self.n_simulations = n_simulations
-        self.kill_switch_threshold = kill_switch_threshold
-        self.rng = np.random.default_rng(random_seed)
-        
-        logger.info(
-            f"MonteCarloSimulator initialized: {n_simulations} sims, "
-            f"kill switch at {kill_switch_threshold:.0%}"
-        )
-    
-    def run(
-        self,
-        trade_returns: np.ndarray,
-        initial_capital: float = 100000.0,
-        method: str = "sequence"
-    ) -> MonteCarloResult:
-        """
-        Run Monte Carlo simulation.
-        
-        Args:
-            trade_returns: Array of individual trade returns (percentages)
-            initial_capital: Starting capital
-            method: Simulation method - "sequence" (shuffle), "bootstrap" (resample)
-            
         Returns:
-            MonteCarloResult with all risk metrics
+            ValidationResult with VaR, CVaR, and risk metrics
         """
-        trade_returns = np.asarray(trade_returns).flatten()
-        n_trades = len(trade_returns)
+        # Extract returns
+        if trades is None:
+            trades = backtest_result.get('trades', [])
         
-        if n_trades < 10:
-            raise ValueError(
-                f"Insufficient trades ({n_trades}) for Monte Carlo. "
-                "Need at least 10 trades."
+        if not trades:
+            return ValidationResult(
+                validator_name=self.name,
+                status=ValidationStatus.ERROR,
+                interpretation="No trades to simulate"
             )
         
-        logger.info(
-            f"Running Monte Carlo ({method}): {self.n_simulations} sims, "
-            f"{n_trades} trades"
-        )
+        # Get returns array
+        returns = []
+        for trade in trades:
+            if isinstance(trade, dict):
+                pnl = trade.get('pnl_pct')
+            else:
+                pnl = getattr(trade, 'pnl_pct', None)
+            
+            if pnl is not None:
+                returns.append(pnl / 100)  # Convert % to decimal
         
-        # Generate simulated return sequences
-        if method == "sequence":
-            sim_returns = self._sequence_randomization(trade_returns)
-        elif method == "bootstrap":
-            sim_returns = self._bootstrap_with_replacement(trade_returns)
+        if len(returns) < 5:
+            return ValidationResult(
+                validator_name=self.name,
+                status=ValidationStatus.WARN,
+                interpretation=f"Insufficient trades ({len(returns)}) for Monte Carlo"
+            )
+        
+        returns = np.array(returns)
+        
+        # Configuration
+        n_sims = self.config.get('n_simulations', 1000)
+        n_trades = self.config.get('n_trades_per_sim') or len(returns)
+        initial_capital = self.config.get('initial_capital', 10000.0)
+        var_conf = self.config.get('var_confidence', 0.95)
+        ruin_threshold = self.config.get('risk_of_ruin_threshold', 0.5)
+        
+        # Run simulations
+        final_equities = []
+        max_drawdowns = []
+        ruin_count = 0
+        
+        for _ in range(n_sims):
+            # Resample returns with replacement
+            sim_returns = np.random.choice(returns, size=n_trades, replace=True)
+            
+            # Build equity curve
+            equity = [initial_capital]
+            for r in sim_returns:
+                equity.append(equity[-1] * (1 + r))
+            
+            equity = np.array(equity)
+            final_equities.append(equity[-1])
+            
+            # Calculate max drawdown
+            running_max = np.maximum.accumulate(equity)
+            drawdowns = (running_max - equity) / running_max
+            max_dd = np.max(drawdowns)
+            max_drawdowns.append(max_dd)
+            
+            # Check for ruin
+            if max_dd >= ruin_threshold:
+                ruin_count += 1
+        
+        final_equities = np.array(final_equities)
+        max_drawdowns = np.array(max_drawdowns)
+        
+        # Calculate metrics
+        var_idx = int((1 - var_conf) * n_sims)
+        sorted_returns = np.sort((final_equities / initial_capital - 1) * 100)
+        var = sorted_returns[var_idx]
+        cvar = np.mean(sorted_returns[:var_idx]) if var_idx > 0 else var
+        
+        risk_of_ruin = ruin_count / n_sims
+        median_final = np.median(final_equities)
+        mean_final = np.mean(final_equities)
+        
+        # Confidence intervals
+        ci_lower = np.percentile(final_equities, 5)
+        ci_upper = np.percentile(final_equities, 95)
+        
+        # Determine status based on risk of ruin
+        if risk_of_ruin < 0.05:
+            status = ValidationStatus.PASS
+            interpretation = f"Low risk profile (Risk of Ruin: {risk_of_ruin:.1%})"
+        elif risk_of_ruin < 0.20:
+            status = ValidationStatus.WARN
+            interpretation = f"Moderate risk (Risk of Ruin: {risk_of_ruin:.1%})"
         else:
-            raise ValueError(f"Unknown method: {method}")
+            status = ValidationStatus.FAIL
+            interpretation = f"High risk (Risk of Ruin: {risk_of_ruin:.1%})"
         
-        # Build equity curves
-        equity_paths = self._build_equity_curves(sim_returns, initial_capital)
-        
-        # Calculate drawdowns
-        max_drawdowns = np.array([
-            self._calculate_max_drawdown(path) for path in equity_paths
-        ])
-        
-        # Calculate final returns
-        final_returns = (equity_paths[:, -1] - initial_capital) / initial_capital * 100
-        
-        # Calculate VaR (percentiles of max DD distribution)
-        var_95 = float(np.percentile(max_drawdowns, 95))
-        var_99 = float(np.percentile(max_drawdowns, 99))
-        
-        # Expected Shortfall (average of worst 5%)
-        worst_5_pct = max_drawdowns >= np.percentile(max_drawdowns, 95)
-        expected_shortfall_95 = float(np.mean(max_drawdowns[worst_5_pct]))
-        
-        # Time to recovery analysis
-        recovery_times = self._calculate_recovery_times(equity_paths, initial_capital)
-        time_to_recovery_mean = float(np.mean(recovery_times[recovery_times > 0]))
-        time_to_recovery_95 = float(np.percentile(recovery_times[recovery_times > 0], 95)) if np.any(recovery_times > 0) else 0
-        
-        # Kill switch probability
-        kill_switch_prob = float(np.mean(max_drawdowns >= self.kill_switch_threshold * 100))
-        
-        result = MonteCarloResult(
-            equity_paths=equity_paths,
-            max_drawdowns=max_drawdowns,
-            final_returns=final_returns,
-            var_95=var_95,
-            var_99=var_99,
-            expected_shortfall_95=expected_shortfall_95,
-            time_to_recovery_mean=time_to_recovery_mean,
-            time_to_recovery_95=time_to_recovery_95,
-            kill_switch_prob=kill_switch_prob,
-            kill_switch_threshold=self.kill_switch_threshold * 100,
-            n_simulations=self.n_simulations,
-            initial_capital=initial_capital,
+        return ValidationResult(
+            validator_name=self.name,
+            status=status,
+            metrics={
+                f'var_{int(var_conf*100)}': round(var, 2),
+                f'cvar_{int(var_conf*100)}': round(cvar, 2),
+                'risk_of_ruin': round(risk_of_ruin, 4),
+                'median_final_equity': round(median_final, 2),
+                'mean_final_equity': round(mean_final, 2),
+                'equity_ci_90': [round(ci_lower, 2), round(ci_upper, 2)],
+                'median_max_drawdown': round(np.median(max_drawdowns) * 100, 2),
+                'worst_max_drawdown': round(np.max(max_drawdowns) * 100, 2),
+                'n_simulations': n_sims,
+                'n_trades_per_sim': n_trades
+            },
+            confidence=round(1 - risk_of_ruin, 4),
+            interpretation=interpretation,
+            details={
+                'ruin_threshold': ruin_threshold,
+                'initial_capital': initial_capital,
+                'actual_trades_used': len(returns)
+            }
         )
-        
-        logger.info(
-            f"Monte Carlo complete: "
-            f"VaR95={var_95:.1f}%, VaR99={var_99:.1f}%, "
-            f"Kill switch prob={kill_switch_prob:.1%}"
-        )
-        
-        return result
     
-    def _sequence_randomization(self, returns: np.ndarray) -> np.ndarray:
-        """
-        Generate simulations by randomly shuffling trade sequence.
-        
-        Preserves individual trade outcomes but randomizes order.
-        
-        Args:
-            returns: Original trade returns
-            
-        Returns:
-            Array of shape (n_simulations, n_trades)
-        """
-        n_trades = len(returns)
-        sim_returns = np.zeros((self.n_simulations, n_trades))
-        
-        for i in range(self.n_simulations):
-            sim_returns[i] = self.rng.permutation(returns)
-        
-        return sim_returns
-    
-    def _bootstrap_with_replacement(self, returns: np.ndarray) -> np.ndarray:
-        """
-        Generate simulations by resampling with replacement.
-        
-        Creates potentially different trade counts and return distributions.
-        
-        Args:
-            returns: Original trade returns
-            
-        Returns:
-            Array of shape (n_simulations, n_trades)
-        """
-        n_trades = len(returns)
-        sim_returns = np.zeros((self.n_simulations, n_trades))
-        
-        for i in range(self.n_simulations):
-            indices = self.rng.integers(0, n_trades, size=n_trades)
-            sim_returns[i] = returns[indices]
-        
-        return sim_returns
-    
-    def _build_equity_curves(
+    def simulate_equity_paths(
         self,
-        sim_returns: np.ndarray,
-        initial_capital: float
-    ) -> np.ndarray:
+        returns: np.ndarray,
+        n_sims: int = 100,
+        n_trades: int = 100,
+        initial_capital: float = 10000.0
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Build equity curves from simulated returns.
+        Generate simulated equity paths for visualization.
         
         Args:
-            sim_returns: Simulated returns (n_sims, n_trades)
+            returns: Array of trade returns (as decimals)
+            n_sims: Number of simulations
+            n_trades: Trades per simulation
             initial_capital: Starting capital
-            
+        
         Returns:
-            Equity curves (n_sims, n_trades + 1)
+            Tuple of (equity_paths array, max_drawdowns array)
         """
-        n_sims, n_trades = sim_returns.shape
-        
-        # Initialize with starting capital
-        equity = np.zeros((n_sims, n_trades + 1))
-        equity[:, 0] = initial_capital
-        
-        # Build curves (assuming returns are percentages)
-        for t in range(n_trades):
-            equity[:, t + 1] = equity[:, t] * (1 + sim_returns[:, t] / 100)
-        
-        return equity
-    
-    def _calculate_max_drawdown(self, equity: np.ndarray) -> float:
-        """
-        Calculate maximum drawdown for an equity curve.
-        
-        Args:
-            equity: Equity curve array
-            
-        Returns:
-            Maximum drawdown as percentage
-        """
-        running_max = np.maximum.accumulate(equity)
-        drawdowns = (running_max - equity) / running_max * 100
-        return float(np.max(drawdowns))
-    
-    def _calculate_recovery_times(
-        self,
-        equity_paths: np.ndarray,
-        initial_capital: float
-    ) -> np.ndarray:
-        """
-        Calculate time to recovery from max drawdown for each simulation.
-        
-        Args:
-            equity_paths: All equity curves
-            initial_capital: Starting capital
-            
-        Returns:
-            Array of recovery times (in trade steps)
-        """
-        n_sims, n_steps = equity_paths.shape
-        recovery_times = np.zeros(n_sims)
+        paths = np.zeros((n_sims, n_trades + 1))
+        paths[:, 0] = initial_capital
         
         for i in range(n_sims):
-            equity = equity_paths[i]
-            running_max = np.maximum.accumulate(equity)
-            
-            # Find where max drawdown occurred
-            drawdowns = (running_max - equity) / running_max
-            max_dd_idx = np.argmax(drawdowns)
-            max_dd_level = running_max[max_dd_idx]
-            
-            # Find recovery point (if any)
-            recovery_idx = np.where(equity[max_dd_idx:] >= max_dd_level)[0]
-            
-            if len(recovery_idx) > 0:
-                recovery_times[i] = recovery_idx[0]
-            else:
-                recovery_times[i] = n_steps - max_dd_idx  # Still in drawdown
+            sim_returns = np.random.choice(returns, size=n_trades, replace=True)
+            for j, r in enumerate(sim_returns):
+                paths[i, j + 1] = paths[i, j] * (1 + r)
         
-        return recovery_times
-    
-    def generate_report(self, result: MonteCarloResult) -> str:
-        """
-        Generate text report of Monte Carlo results.
-        
-        Args:
-            result: MonteCarloResult to report
-            
-        Returns:
-            Formatted report string
-        """
-        lines = [
-            "=" * 60,
-            "MONTE CARLO SIMULATION RESULTS",
-            "=" * 60,
-            "",
-            f"Simulations: {result.n_simulations:,}",
-            f"Initial Capital: ${result.initial_capital:,.0f}",
-            "",
-            "Return Distribution:",
-            f"  - Median Final Return: {result.median_final_return:+.2f}%",
-            f"  - Best Case (99th): {result.best_case_return:+.2f}%",
-            f"  - Worst Case (1st): {result.worst_case_return:+.2f}%",
-            "",
-            "Drawdown Risk (Value at Risk):",
-            f"  - VaR 95%: {result.var_95:.2f}%",
-            f"    (95% of paths have max DD <= {result.var_95:.2f}%)",
-            f"  - VaR 99%: {result.var_99:.2f}%",
-            f"    (99% of paths have max DD <= {result.var_99:.2f}%)",
-            f"  - Expected Shortfall (CVaR 95%): {result.expected_shortfall_95:.2f}%",
-            f"    (Average DD in worst 5% of scenarios)",
-            "",
-            "Recovery Analysis:",
-            f"  - Mean Time to Recovery: {result.time_to_recovery_mean:.1f} trades",
-            f"  - 95th Percentile Recovery: {result.time_to_recovery_95:.1f} trades",
-            "",
-            "Kill Switch Analysis:",
-            f"  - Threshold: {result.kill_switch_threshold:.1f}%",
-            f"  - Probability of Trigger: {result.kill_switch_prob:.2%}",
-            f"    ({result.kill_switch_prob * result.n_simulations:,.0f} of {result.n_simulations:,} paths)",
-            "",
-            "=" * 60,
-            "Risk Summary:",
-            f"  - Max tolerable leverage: {100 / result.var_99:.1f}x",
-            f"    (To keep 99% VaR under 100%)",
-            "=" * 60,
-        ]
-        
-        return "\n".join(lines)
-
-
-def run_monte_carlo(
-    trade_returns: np.ndarray,
-    n_simulations: int = 50000,
-    initial_capital: float = 100000.0,
-    kill_switch_threshold: float = 0.20,
-    seed: Optional[int] = None
-) -> MonteCarloResult:
-    """
-    Convenience function to run Monte Carlo simulation.
-    
-    Args:
-        trade_returns: Array of trade returns
-        n_simulations: Number of simulations
-        initial_capital: Starting capital
-        kill_switch_threshold: Kill switch drawdown threshold
-        seed: Random seed
-        
-    Returns:
-        MonteCarloResult
-    """
-    sim = MonteCarloSimulator(
-        n_simulations=n_simulations,
-        kill_switch_threshold=kill_switch_threshold,
-        random_seed=seed
-    )
-    return sim.run(trade_returns, initial_capital)
+        return paths

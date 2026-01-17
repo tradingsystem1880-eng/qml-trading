@@ -1,0 +1,35 @@
+{
+  "training_metrics": {
+    "accuracy": 0.4090909090909091,
+    "auc": 0.5470085470085471,
+    "n_train": 92,
+    "n_test": 22,
+    "positive_rate": 0.3157894736842105
+  },
+  "feature_importance": {
+    "entry_price": 168.0,
+    "sl_distance_pct": 188.0,
+    "tp_distance_pct": 30.0,
+    "risk_reward_ratio": 19.0,
+    "hour_of_day": 54.0,
+    "day_of_week": 73.0,
+    "pattern_type_bullish": 22.0,
+    "side_long": 6.0
+  },
+  "feature_names": [
+    "validity_score",
+    "entry_price",
+    "atr_at_entry",
+    "sl_distance_pct",
+    "tp_distance_pct",
+    "risk_reward_ratio",
+    "hour_of_day",
+    "day_of_week",
+    "volatility_percentile",
+    "trend_strength",
+    "bars_since_last_trade",
+    "pattern_type_bullish",
+    "side_long"
+  ],
+  "saved_at": "2026-01-07T15:40:05.719696"
+}

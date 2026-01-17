@@ -1,0 +1,16 @@
+{
+  "experiment_id": "20230101_000001_BTCUSDT_1h_v2.0.0",
+  "symbol": "BTC/USDT",
+  "timeframe": "1h",
+  "detection_version": "v2.0.0",
+  "detection_method": "atr_directional_change",
+  "start_date": "2023-01-01",
+  "end_date": "2024-06-25",
+  "created_at": "2025-12-30T23:36:19.329782",
+  "params": {
+    "window_size": 200,
+    "atr_lookback": 14,
+    "min_validity_score": 0.7
+  },
+  "detection_logic": "v2.0.0_atr_directional_change"
+}

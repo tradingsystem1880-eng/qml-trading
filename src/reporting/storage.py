@@ -17,10 +17,32 @@ This enables:
 import hashlib
 import json
 import sqlite3
+import subprocess
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+
+def get_git_revision_hash() -> Optional[str]:
+    """
+    Get the current git revision hash.
+    
+    Returns:
+        Short git hash (7 chars) or None if not in a git repo
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent.parent  # Project root
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return None
+    except Exception:
+        return None
 
 
 class ExperimentLogger:
@@ -91,7 +113,10 @@ class ExperimentLogger:
                     tags TEXT,
                     
                     -- Report path
-                    report_path TEXT
+                    report_path TEXT,
+                    
+                    -- Git tracking (VRD 2.0 Process Integrity)
+                    git_hash TEXT
                 )
             """)
             
@@ -198,6 +223,9 @@ class ExperimentLogger:
         config_json = json.dumps(config_dict, default=str, indent=2)
         tags_str = ','.join(tags) if tags else None
         
+        # Get git hash for reproducibility
+        git_hash = get_git_revision_hash()
+        
         # Insert into database
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
@@ -205,13 +233,13 @@ class ExperimentLogger:
                     run_id, timestamp, strategy_name, symbol, timeframe,
                     pnl_percent, pnl_usd, max_drawdown, win_rate, profit_factor,
                     sharpe_ratio, sortino_ratio, total_trades, winning_trades, losing_trades,
-                    config_json, data_start, data_end, data_bars, notes, tags, report_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    config_json, data_start, data_end, data_bars, notes, tags, report_path, git_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 run_id, timestamp, strategy, symbol, timeframe,
                 pnl_percent, pnl_usd, max_drawdown, win_rate, profit_factor,
                 sharpe_ratio, sortino_ratio, total_trades, winning_trades, losing_trades,
-                config_json, data_start, data_end, data_bars, notes, tags_str, report_path
+                config_json, data_start, data_end, data_bars, notes, tags_str, report_path, git_hash
             ))
             conn.commit()
         

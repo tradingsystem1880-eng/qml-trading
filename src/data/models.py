@@ -10,7 +10,7 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Timeframe(str, Enum):
@@ -81,6 +81,7 @@ class TradeOutcome(str, Enum):
 
 class OHLCV(BaseModel):
     """OHLCV candlestick data model."""
+    model_config = ConfigDict(from_attributes=True)
     
     time: datetime
     symbol: str
@@ -131,14 +132,11 @@ class OHLCV(BaseModel):
     def range(self) -> float:
         """Total candle range (high - low)."""
         return self.high - self.low
-    
-    class Config:
-        """Pydantic config."""
-        from_attributes = True
 
 
 class SwingPoint(BaseModel):
     """Swing high/low point model."""
+    model_config = ConfigDict(from_attributes=True)
     
     time: datetime
     symbol: str
@@ -159,13 +157,11 @@ class SwingPoint(BaseModel):
     def is_low(self) -> bool:
         """Check if this is a swing low."""
         return self.swing_type == SwingType.LOW
-    
-    class Config:
-        from_attributes = True
 
 
 class MarketStructure(BaseModel):
     """Market structure point (HH/HL/LH/LL)."""
+    model_config = ConfigDict(from_attributes=True)
     
     time: datetime
     symbol: str
@@ -186,13 +182,11 @@ class MarketStructure(BaseModel):
     def is_bearish_structure(self) -> bool:
         """Check if structure is bearish (LH or LL)."""
         return self.structure_type in [StructureType.LH, StructureType.LL]
-    
-    class Config:
-        from_attributes = True
 
 
 class CHoCHEvent(BaseModel):
     """Change of Character (CHoCH) event."""
+    model_config = ConfigDict(from_attributes=True)
     
     time: datetime
     symbol: str
@@ -203,13 +197,11 @@ class CHoCHEvent(BaseModel):
     volume_confirmation: bool = False
     confirmed: bool = False
     bar_index: Optional[int] = None
-    
-    class Config:
-        from_attributes = True
 
 
 class BoSEvent(BaseModel):
     """Break of Structure (BoS) event."""
+    model_config = ConfigDict(from_attributes=True)
     
     time: datetime
     symbol: str
@@ -219,9 +211,6 @@ class BoSEvent(BaseModel):
     volume_spike: bool = False
     choch_event: Optional[CHoCHEvent] = None
     bar_index: Optional[int] = None
-    
-    class Config:
-        from_attributes = True
 
 
 class TradingLevels(BaseModel):
@@ -257,6 +246,7 @@ class QMLPattern(BaseModel):
     Represents a fully detected QML pattern with all components,
     trading levels, and quality metrics.
     """
+    model_config = ConfigDict(from_attributes=True)
     
     id: Optional[int] = None
     detection_time: datetime
@@ -326,9 +316,6 @@ class QMLPattern(BaseModel):
         """Mark pattern as invalidated."""
         self.status = PatternStatus.INVALIDATED
         self.invalidation_reason = reason
-    
-    class Config:
-        from_attributes = True
 
 
 class PatternFeatures(BaseModel):
@@ -336,6 +323,7 @@ class PatternFeatures(BaseModel):
     Engineered features for a QML pattern.
     Used as input for ML model prediction.
     """
+    model_config = ConfigDict(from_attributes=True)
     
     pattern_id: int
     pattern_time: datetime
@@ -384,9 +372,6 @@ class PatternFeatures(BaseModel):
         ]
         # Replace None with NaN for ML handling
         return np.array([v if v is not None else np.nan for v in feature_values])
-    
-    class Config:
-        from_attributes = True
 
 
 class OHLCVDataFrame:

@@ -1,2 +1,0 @@
-original_trades,corrected_trades,original_win_rate,corrected_win_rate,original_profit_factor,corrected_profit_factor,original_max_dd,corrected_max_dd,original_sharpe,corrected_sharpe,mc_probability_profitable,mc_mean_max_dd
-119,43,0.595,0.6744186046511628,1.47,2.07142857142857,30.7,2.0096010199000087,0.71,5.839678452331442,1.0,3.2993600044233715

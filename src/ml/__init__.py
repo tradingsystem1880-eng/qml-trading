@@ -1,19 +1,11 @@
 """
-Machine Learning Module for QML Trading System
-================================================
-XGBoost-based pattern quality scoring with walk-forward validation.
+ML Module for QML Trading System
+================================
+Machine learning infrastructure for signal prediction.
 """
 
-from src.ml.model import QMLModel, ModelConfig
-from src.ml.trainer import ModelTrainer, TrainerConfig
-from src.ml.labeler import TripleBarrierLabeler, LabelConfig
+from src.ml.predictor import XGBoostPredictor
 
 __all__ = [
-    "QMLModel",
-    "ModelConfig",
-    "ModelTrainer",
-    "TrainerConfig",
-    "TripleBarrierLabeler",
-    "LabelConfig",
+    "XGBoostPredictor",
 ]
-

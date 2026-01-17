@@ -1,0 +1,19 @@
+# Antigravity IDE - Directories to ignore for analysis
+# This prevents memory bloat from indexing .venv (11,000+ files)
+
+.venv/
+venv/
+env/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.archive/
+archive/
+results/
+data/
+logs/
+.git/
+.cursor/
+*.pyc
+*.pyo
+*.db

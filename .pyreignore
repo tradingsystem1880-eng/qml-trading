@@ -1,0 +1,43 @@
+# Pyrefly Type Checker - Ignore These Directories
+# This prevents 3GB+ RAM usage from indexing .venv
+
+# Virtual environment (11,000+ Python files!)
+.venv/
+venv/
+env/
+ENV/
+
+# Cache directories
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Archives (old code)
+.archive/
+archive/
+
+# Results and data (not code)
+results/
+data/
+logs/
+paper_trading_logs/
+
+# IDE and config
+.cursor/
+.git/
+.obsidian/
+.ipynb_checkpoints/
+.jupyter/
+.streamlit/
+.agent/
+
+# Models and notebooks
+models/
+notebooks/
+
+# Docker
+docker/
+
+# Examples
+examples/

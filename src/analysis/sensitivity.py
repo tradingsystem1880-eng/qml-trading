@@ -1,495 +1,369 @@
 """
-Parameter Sensitivity Analysis
-==============================
-Tests parameters across ±40% range to identify stability islands vs cliffs.
-Outputs data structures ready for 3D surface plotting.
+Sensitivity Analysis & Visualization
+=====================================
+VRD 2.0 Module 4: Parameter Sensitivity Analysis
+
+Visualizes the "Stability Landscape" of parameter combinations:
+- Heatmaps showing performance across parameter grid
+- 3D surface plots for multi-dimensional analysis
+- Identifies robust parameter regions vs brittle outliers
 """
 
-from dataclasses import dataclass, field
-from itertools import product
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from loguru import logger
+
+# Try to import plotly
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    HAS_PLOTLY = True
+except ImportError:
+    HAS_PLOTLY = False
 
 
-@dataclass
-class SensitivityConfig:
-    """Configuration for parameter sensitivity analysis."""
-    
-    # Variation range (e.g., 0.4 = ±40%)
-    variation_range: float = 0.4
-    
-    # Number of steps per parameter
-    n_steps: int = 20
-    
-    # Metrics to compute
-    metrics: List[str] = field(default_factory=lambda: [
-        "sharpe_ratio",
-        "profit_factor",
-        "max_drawdown_pct",
-        "win_rate",
-        "total_trades",
-    ])
-    
-    # Primary optimization metric
-    primary_metric: str = "sharpe_ratio"
-
-
-@dataclass
-class ParameterSweep:
-    """Result of a single parameter sweep."""
-    
-    param_name: str
-    param_values: np.ndarray
-    metric_values: Dict[str, np.ndarray]
-    base_value: float
-    
-    @property
-    def best_value(self) -> float:
-        """Best parameter value for primary metric."""
-        idx = np.argmax(self.metric_values.get("sharpe_ratio", self.param_values))
-        return float(self.param_values[idx])
-    
-    @property
-    def stability_score(self) -> float:
-        """
-        Stability score (0-1).
-        Higher = more stable (performance doesn't vary much).
-        """
-        sharpe_vals = self.metric_values.get("sharpe_ratio", np.array([0]))
-        if len(sharpe_vals) < 2 or np.std(sharpe_vals) == 0:
-            return 1.0
-        
-        # Coefficient of variation (inverted for stability)
-        mean_val = np.mean(sharpe_vals)
-        if mean_val == 0:
-            return 0.0
-        
-        cv = np.std(sharpe_vals) / abs(mean_val)
-        return float(max(0, 1 - cv))
-
-
-@dataclass
-class SensitivityResult:
-    """Complete sensitivity analysis result."""
-    
-    # Single parameter sweeps
-    single_sweeps: Dict[str, ParameterSweep]
-    
-    # 2D grid results (for 3D surface plots)
-    grid_results: Optional[Dict[str, np.ndarray]] = None
-    grid_param1_name: Optional[str] = None
-    grid_param1_values: Optional[np.ndarray] = None
-    grid_param2_name: Optional[str] = None
-    grid_param2_values: Optional[np.ndarray] = None
-    
-    # Configuration used
-    config: SensitivityConfig = field(default_factory=SensitivityConfig)
-    
-    def get_stability_ranking(self) -> List[Tuple[str, float]]:
-        """Rank parameters by stability (most stable first)."""
-        rankings = [
-            (name, sweep.stability_score)
-            for name, sweep in self.single_sweeps.items()
-        ]
-        return sorted(rankings, key=lambda x: x[1], reverse=True)
-    
-    def get_sensitivity_ranking(self) -> List[Tuple[str, float]]:
-        """Rank parameters by sensitivity (most sensitive first)."""
-        rankings = [
-            (name, 1 - sweep.stability_score)
-            for name, sweep in self.single_sweeps.items()
-        ]
-        return sorted(rankings, key=lambda x: x[1], reverse=True)
-
-
-class ParameterScanner:
+class SensitivityVisualizer:
     """
-    Parameter Sensitivity Scanner.
+    Visualize parameter sensitivity from grid search results.
     
-    Tests parameters across ±40% range in configurable steps.
-    Identifies:
-    - Stability Islands: Regions where performance is consistently good
-    - Cliffs: Regions where small changes cause large performance drops
+    Queries experiments database and creates:
+    - 2D heatmaps (SL vs TP, colored by metric)
+    - 3D surface plots
+    - Parameter distribution charts
     
-    Outputs data structures ready for 3D surface plotting.
+    Usage:
+        viz = SensitivityVisualizer()
+        viz.plot_heatmap(metric='sharpe_ratio')
+        viz.plot_3d_surface(metric='pnl_percent')
     """
     
-    def __init__(self, config: Optional[SensitivityConfig] = None):
+    def __init__(self, db_path: Optional[str] = None, output_dir: Optional[str] = None):
         """
-        Initialize parameter scanner.
+        Initialize visualizer.
         
         Args:
-            config: Scanner configuration
+            db_path: Path to experiments database
+            output_dir: Directory for output files
         """
-        self.config = config or SensitivityConfig()
+        from src.reporting.storage import ExperimentLogger
         
-        logger.info(
-            f"ParameterScanner initialized: ±{self.config.variation_range*100:.0f}% range, "
-            f"{self.config.n_steps} steps"
-        )
+        self.logger = ExperimentLogger(db_path)
+        
+        if output_dir is None:
+            output_dir = Path(__file__).parent.parent.parent / "results"
+        
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
     
-    def scan_single_parameter(
-        self,
-        objective_fn: Callable[[Dict[str, Any]], Dict[str, float]],
-        param_name: str,
-        base_value: float,
-        base_params: Dict[str, Any]
-    ) -> ParameterSweep:
+    def get_grid_search_results(self, limit: int = 500) -> pd.DataFrame:
         """
-        Scan a single parameter across its range.
+        Get all grid search results from database.
         
-        Args:
-            objective_fn: Function that takes params dict and returns metrics dict
-            param_name: Name of parameter to vary
-            base_value: Base/default value of parameter
-            base_params: Base parameters dictionary
-            
         Returns:
-            ParameterSweep result
+            DataFrame with parameters and metrics
         """
-        # Generate parameter values
-        min_val = base_value * (1 - self.config.variation_range)
-        max_val = base_value * (1 + self.config.variation_range)
-        param_values = np.linspace(min_val, max_val, self.config.n_steps)
+        import sqlite3
         
-        # Initialize metric storage
-        metric_values = {m: np.zeros(self.config.n_steps) for m in self.config.metrics}
-        
-        logger.info(f"Scanning {param_name}: {min_val:.4f} to {max_val:.4f}")
-        
-        # Run sweep
-        for i, val in enumerate(param_values):
-            params = base_params.copy()
-            params[param_name] = val
+        with sqlite3.connect(self.logger.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("""
+                SELECT 
+                    run_id, timestamp, pnl_percent, sharpe_ratio, 
+                    max_drawdown, win_rate, profit_factor, total_trades,
+                    config_json
+                FROM experiments
+                WHERE strategy_name = 'grid_search'
+                ORDER BY timestamp DESC
+                LIMIT ?
+            """, (limit,))
             
-            try:
-                metrics = objective_fn(params)
-                for metric in self.config.metrics:
-                    metric_values[metric][i] = metrics.get(metric, np.nan)
-            except Exception as e:
-                logger.warning(f"Failed at {param_name}={val}: {e}")
-                for metric in self.config.metrics:
-                    metric_values[metric][i] = np.nan
+            rows = [dict(row) for row in cursor.fetchall()]
         
-        return ParameterSweep(
-            param_name=param_name,
-            param_values=param_values,
-            metric_values=metric_values,
-            base_value=base_value,
-        )
+        if not rows:
+            return pd.DataFrame()
+        
+        # Parse config JSON to get parameters
+        data = []
+        for row in rows:
+            config = json.loads(row['config_json'])
+            data.append({
+                'run_id': row['run_id'],
+                'atr_period': config.get('atr_period', 14),
+                'stop_loss_atr': config.get('stop_loss_atr', 1.5),
+                'take_profit_atr': config.get('take_profit_atr', 3.0),
+                'min_validity_score': config.get('min_validity_score', 0.5),
+                'pnl_percent': row['pnl_percent'] or 0,
+                'sharpe_ratio': row['sharpe_ratio'] or 0,
+                'max_drawdown': row['max_drawdown'] or 0,
+                'win_rate': row['win_rate'] or 0,
+                'profit_factor': row['profit_factor'] or 0,
+                'total_trades': row['total_trades'] or 0,
+            })
+        
+        return pd.DataFrame(data)
     
-    def scan_all_parameters(
+    def plot_heatmap(
         self,
-        objective_fn: Callable[[Dict[str, Any]], Dict[str, float]],
-        base_params: Dict[str, Any],
-        params_to_scan: Optional[List[str]] = None
-    ) -> SensitivityResult:
+        metric: str = 'sharpe_ratio',
+        x_param: str = 'stop_loss_atr',
+        y_param: str = 'take_profit_atr',
+        atr_period: Optional[int] = None
+    ) -> str:
         """
-        Scan all specified parameters independently.
+        Create heatmap of metric across parameter grid.
         
         Args:
-            objective_fn: Objective function
-            base_params: Base parameters
-            params_to_scan: List of parameter names to scan (default: all numeric)
-            
+            metric: Metric to visualize (sharpe_ratio, pnl_percent, etc.)
+            x_param: Parameter for X axis
+            y_param: Parameter for Y axis
+            atr_period: Filter by specific ATR period (None = aggregate)
+        
         Returns:
-            SensitivityResult with all sweeps
+            Path to saved HTML file
         """
-        if params_to_scan is None:
-            # Scan all numeric parameters
-            params_to_scan = [
-                k for k, v in base_params.items()
-                if isinstance(v, (int, float)) and not isinstance(v, bool)
-            ]
+        if not HAS_PLOTLY:
+            raise ImportError("Plotly is required for visualization")
         
-        logger.info(f"Scanning {len(params_to_scan)} parameters")
+        df = self.get_grid_search_results()
         
-        single_sweeps = {}
+        if df.empty:
+            raise ValueError("No grid search results found in database")
         
-        for param_name in params_to_scan:
-            base_value = base_params[param_name]
-            sweep = self.scan_single_parameter(
-                objective_fn, param_name, base_value, base_params
+        # Filter by ATR period if specified
+        if atr_period is not None:
+            df = df[df['atr_period'] == atr_period]
+        
+        # Get unique parameter values
+        x_values = sorted(df[x_param].unique())
+        y_values = sorted(df[y_param].unique())
+        
+        # Create pivot table
+        pivot = df.pivot_table(
+            values=metric,
+            index=y_param,
+            columns=x_param,
+            aggfunc='mean'
+        )
+        
+        # Create heatmap
+        fig = go.Figure()
+        
+        # Color scale based on metric
+        if metric in ('sharpe_ratio', 'pnl_percent', 'profit_factor'):
+            colorscale = 'RdYlGn'  # Red-Yellow-Green (low-to-high is bad-to-good)
+            zmid = 0 if metric in ('sharpe_ratio', 'pnl_percent') else 1
+        else:
+            colorscale = 'RdYlGn_r'  # Reversed for max_drawdown
+            zmid = None
+        
+        fig.add_trace(go.Heatmap(
+            z=pivot.values,
+            x=pivot.columns.tolist(),
+            y=pivot.index.tolist(),
+            colorscale=colorscale,
+            zmid=zmid,
+            text=np.round(pivot.values, 2),
+            texttemplate='%{text}',
+            textfont={'size': 12},
+            hovertemplate=(
+                f'{x_param}: %{{x}}<br>'
+                f'{y_param}: %{{y}}<br>'
+                f'{metric}: %{{z:.3f}}<extra></extra>'
             )
-            single_sweeps[param_name] = sweep
+        ))
         
-        return SensitivityResult(
-            single_sweeps=single_sweeps,
-            config=self.config,
+        # Layout
+        title = f"Sensitivity Analysis: {metric.replace('_', ' ').title()}"
+        if atr_period:
+            title += f" (ATR Period: {atr_period})"
+        
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=20)),
+            xaxis_title=x_param.replace('_', ' ').title(),
+            yaxis_title=y_param.replace('_', ' ').title(),
+            height=600,
+            width=800,
+            font=dict(family='system-ui, -apple-system, sans-serif'),
+            paper_bgcolor='white',
+            plot_bgcolor='white'
         )
+        
+        # Save
+        output_path = self.output_dir / f"sensitivity_{metric}.html"
+        fig.write_html(str(output_path), include_plotlyjs='cdn')
+        
+        return str(output_path)
     
-    def scan_parameter_grid(
+    def plot_3d_surface(
         self,
-        objective_fn: Callable[[Dict[str, Any]], Dict[str, float]],
-        param1_name: str,
-        param1_base: float,
-        param2_name: str,
-        param2_base: float,
-        base_params: Dict[str, Any],
-        n_steps: Optional[int] = None
-    ) -> SensitivityResult:
+        metric: str = 'sharpe_ratio',
+        atr_period: Optional[int] = None
+    ) -> str:
         """
-        Scan a 2D parameter grid for 3D surface plotting.
+        Create 3D surface plot of metric across SL and TP.
         
         Args:
-            objective_fn: Objective function
-            param1_name: First parameter name
-            param1_base: First parameter base value
-            param2_name: Second parameter name
-            param2_base: Second parameter base value
-            base_params: Base parameters
-            n_steps: Optional override for number of steps (default from config)
-            
+            metric: Metric for Z axis
+            atr_period: Filter by ATR period
+        
         Returns:
-            SensitivityResult with grid data
+            Path to saved HTML file
         """
-        n = n_steps or self.config.n_steps
+        if not HAS_PLOTLY:
+            raise ImportError("Plotly is required for visualization")
         
-        # Generate value ranges
-        param1_min = param1_base * (1 - self.config.variation_range)
-        param1_max = param1_base * (1 + self.config.variation_range)
-        param1_values = np.linspace(param1_min, param1_max, n)
+        df = self.get_grid_search_results()
         
-        param2_min = param2_base * (1 - self.config.variation_range)
-        param2_max = param2_base * (1 + self.config.variation_range)
-        param2_values = np.linspace(param2_min, param2_max, n)
+        if df.empty:
+            raise ValueError("No grid search results found")
         
-        logger.info(
-            f"Scanning 2D grid: {param1_name} x {param2_name} ({n}x{n} = {n*n} points)"
+        if atr_period:
+            df = df[df['atr_period'] == atr_period]
+        
+        # Create pivot
+        pivot = df.pivot_table(
+            values=metric,
+            index='take_profit_atr',
+            columns='stop_loss_atr',
+            aggfunc='mean'
         )
         
-        # Initialize result grids
-        grid_results = {m: np.zeros((n, n)) for m in self.config.metrics}
+        fig = go.Figure(data=[go.Surface(
+            z=pivot.values,
+            x=pivot.columns.tolist(),
+            y=pivot.index.tolist(),
+            colorscale='RdYlGn',
+            hovertemplate=(
+                'Stop Loss ATR: %{x}<br>'
+                'Take Profit ATR: %{y}<br>'
+                f'{metric}: %{{z:.3f}}<extra></extra>'
+            )
+        )])
         
-        # Run grid scan
-        total = n * n
-        for i, v1 in enumerate(param1_values):
-            for j, v2 in enumerate(param2_values):
-                params = base_params.copy()
-                params[param1_name] = v1
-                params[param2_name] = v2
-                
-                try:
-                    metrics = objective_fn(params)
-                    for metric in self.config.metrics:
-                        grid_results[metric][i, j] = metrics.get(metric, np.nan)
-                except Exception as e:
-                    for metric in self.config.metrics:
-                        grid_results[metric][i, j] = np.nan
-                
-                if (i * n + j + 1) % (total // 10) == 0:
-                    logger.info(f"  Progress: {(i * n + j + 1) / total * 100:.0f}%")
+        title = f"3D Sensitivity: {metric.replace('_', ' ').title()}"
         
-        # Also run single sweeps for context
-        sweep1 = self.scan_single_parameter(
-            objective_fn, param1_name, param1_base, base_params
-        )
-        sweep2 = self.scan_single_parameter(
-            objective_fn, param2_name, param2_base, base_params
+        fig.update_layout(
+            title=title,
+            scene=dict(
+                xaxis_title='Stop Loss (ATR mult)',
+                yaxis_title='Take Profit (ATR mult)',
+                zaxis_title=metric.replace('_', ' ').title()
+            ),
+            height=700,
+            width=900
         )
         
-        return SensitivityResult(
-            single_sweeps={param1_name: sweep1, param2_name: sweep2},
-            grid_results=grid_results,
-            grid_param1_name=param1_name,
-            grid_param1_values=param1_values,
-            grid_param2_name=param2_name,
-            grid_param2_values=param2_values,
-            config=self.config,
-        )
+        output_path = self.output_dir / f"sensitivity_3d_{metric}.html"
+        fig.write_html(str(output_path), include_plotlyjs='cdn')
+        
+        return str(output_path)
     
-    def identify_stability_islands(
+    def plot_parameter_distributions(self) -> str:
+        """
+        Create box plots showing metric distributions by parameter value.
+        
+        Returns:
+            Path to saved HTML file
+        """
+        if not HAS_PLOTLY:
+            raise ImportError("Plotly is required")
+        
+        df = self.get_grid_search_results()
+        
+        if df.empty:
+            raise ValueError("No grid search results found")
+        
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=(
+                'Sharpe by ATR Period',
+                'Sharpe by Stop Loss ATR',
+                'Sharpe by Take Profit ATR',
+                'Sharpe by Validity Score'
+            )
+        )
+        
+        # ATR Period
+        for atr in sorted(df['atr_period'].unique()):
+            subset = df[df['atr_period'] == atr]
+            fig.add_trace(
+                go.Box(y=subset['sharpe_ratio'], name=str(atr), showlegend=False),
+                row=1, col=1
+            )
+        
+        # Stop Loss ATR
+        for sl in sorted(df['stop_loss_atr'].unique()):
+            subset = df[df['stop_loss_atr'] == sl]
+            fig.add_trace(
+                go.Box(y=subset['sharpe_ratio'], name=str(sl), showlegend=False),
+                row=1, col=2
+            )
+        
+        # Take Profit ATR
+        for tp in sorted(df['take_profit_atr'].unique()):
+            subset = df[df['take_profit_atr'] == tp]
+            fig.add_trace(
+                go.Box(y=subset['sharpe_ratio'], name=str(tp), showlegend=False),
+                row=2, col=1
+            )
+        
+        # Validity Score
+        for val in sorted(df['min_validity_score'].unique()):
+            subset = df[df['min_validity_score'] == val]
+            fig.add_trace(
+                go.Box(y=subset['sharpe_ratio'], name=str(val), showlegend=False),
+                row=2, col=2
+            )
+        
+        fig.update_layout(
+            title='Parameter Sensitivity Distributions',
+            height=800,
+            width=1000
+        )
+        
+        output_path = self.output_dir / "sensitivity_distributions.html"
+        fig.write_html(str(output_path), include_plotlyjs='cdn')
+        
+        return str(output_path)
+    
+    def get_optimal_parameters(
         self,
-        result: SensitivityResult,
-        metric: str = "sharpe_ratio",
-        threshold_pct: float = 0.8
+        metric: str = 'sharpe_ratio',
+        min_trades: int = 50
     ) -> Dict[str, Any]:
         """
-        Identify stability islands in parameter space.
-        
-        A stability island is a region where performance stays above
-        threshold_pct of the maximum.
+        Find optimal parameter combination.
         
         Args:
-            result: SensitivityResult from scan
-            metric: Metric to analyze
-            threshold_pct: Threshold as percentage of max (0.8 = 80% of max)
-            
+            metric: Metric to optimize
+            min_trades: Minimum trades required
+        
         Returns:
-            Dictionary with stability analysis
+            Dictionary with optimal parameters
         """
-        analysis = {}
+        df = self.get_grid_search_results()
         
-        # Single parameter stability
-        for param_name, sweep in result.single_sweeps.items():
-            values = sweep.metric_values.get(metric, np.array([]))
-            if len(values) == 0:
-                continue
-            
-            max_val = np.nanmax(values)
-            threshold = max_val * threshold_pct
-            
-            # Find stable region
-            stable_mask = values >= threshold
-            stable_indices = np.where(stable_mask)[0]
-            
-            if len(stable_indices) > 0:
-                stable_start = sweep.param_values[stable_indices[0]]
-                stable_end = sweep.param_values[stable_indices[-1]]
-                stable_width = (stable_end - stable_start) / sweep.base_value * 100
-                
-                analysis[param_name] = {
-                    "stable_range": (float(stable_start), float(stable_end)),
-                    "stable_width_pct": float(stable_width),
-                    "optimal_value": float(sweep.param_values[np.nanargmax(values)]),
-                    "stability_score": sweep.stability_score,
-                    "is_stable": stable_width > 20,  # >20% range is stable
-                }
+        if df.empty:
+            return {}
         
-        # 2D grid stability (for surface)
-        if result.grid_results is not None and metric in result.grid_results:
-            grid = result.grid_results[metric]
-            max_val = np.nanmax(grid)
-            threshold = max_val * threshold_pct
-            stable_region = grid >= threshold
-            
-            analysis["grid_stability"] = {
-                "stable_area_pct": float(np.sum(stable_region) / grid.size * 100),
-                "max_value": float(max_val),
-                "threshold": float(threshold),
-            }
+        # Filter by minimum trades
+        df = df[df['total_trades'] >= min_trades]
         
-        return analysis
-    
-    def to_surface_plot_data(
-        self,
-        result: SensitivityResult,
-        metric: str = "sharpe_ratio"
-    ) -> Dict[str, np.ndarray]:
-        """
-        Convert grid result to surface plot data.
+        if df.empty:
+            return {}
         
-        Args:
-            result: SensitivityResult with grid data
-            metric: Metric for Z axis
-            
-        Returns:
-            Dictionary with X, Y, Z arrays for 3D plotting
-        """
-        if result.grid_results is None:
-            raise ValueError("No grid results available. Run scan_parameter_grid first.")
-        
-        if metric not in result.grid_results:
-            raise ValueError(f"Metric {metric} not in grid results")
-        
-        # Create meshgrid
-        X, Y = np.meshgrid(result.grid_param1_values, result.grid_param2_values)
-        Z = result.grid_results[metric].T  # Transpose for correct orientation
+        # Find best row
+        best_idx = df[metric].idxmax() if metric != 'max_drawdown' else df[metric].idxmin()
+        best_row = df.loc[best_idx]
         
         return {
-            "X": X,
-            "Y": Y,
-            "Z": Z,
-            "param1_name": result.grid_param1_name,
-            "param2_name": result.grid_param2_name,
-            "metric": metric,
+            'atr_period': int(best_row['atr_period']),
+            'stop_loss_atr': float(best_row['stop_loss_atr']),
+            'take_profit_atr': float(best_row['take_profit_atr']),
+            'min_validity_score': float(best_row['min_validity_score']),
+            'metric_value': float(best_row[metric]),
+            'total_trades': int(best_row['total_trades'])
         }
-    
-    def generate_report(self, result: SensitivityResult) -> str:
-        """
-        Generate text report of sensitivity analysis.
-        
-        Args:
-            result: SensitivityResult
-            
-        Returns:
-            Formatted report string
-        """
-        lines = [
-            "=" * 60,
-            "PARAMETER SENSITIVITY ANALYSIS REPORT",
-            "=" * 60,
-            "",
-            f"Variation range: ±{self.config.variation_range*100:.0f}%",
-            f"Steps per parameter: {self.config.n_steps}",
-            "",
-            "PARAMETER STABILITY RANKING (most stable first):",
-            "-" * 60,
-        ]
-        
-        for param_name, score in result.get_stability_ranking():
-            sweep = result.single_sweeps[param_name]
-            sharpe_vals = sweep.metric_values.get("sharpe_ratio", np.array([0]))
-            best_val = sweep.param_values[np.nanargmax(sharpe_vals)]
-            
-            lines.append(
-                f"  {param_name:25s}: stability={score:.3f}, "
-                f"base={sweep.base_value:.4f}, best={best_val:.4f}"
-            )
-        
-        lines.extend([
-            "",
-            "SENSITIVITY RANKING (most sensitive first):",
-            "-" * 60,
-        ])
-        
-        for param_name, sensitivity in result.get_sensitivity_ranking():
-            lines.append(f"  {param_name:25s}: sensitivity={sensitivity:.3f}")
-        
-        # Stability islands
-        stability_analysis = self.identify_stability_islands(result)
-        
-        lines.extend([
-            "",
-            "STABILITY ISLANDS:",
-            "-" * 60,
-        ])
-        
-        for param_name, info in stability_analysis.items():
-            if param_name == "grid_stability":
-                continue
-            lines.append(
-                f"  {param_name}: stable range {info['stable_range'][0]:.4f} to "
-                f"{info['stable_range'][1]:.4f} ({info['stable_width_pct']:.1f}% of base)"
-            )
-        
-        if "grid_stability" in stability_analysis:
-            grid_info = stability_analysis["grid_stability"]
-            lines.append(
-                f"  2D Grid: {grid_info['stable_area_pct']:.1f}% of space is stable"
-            )
-        
-        lines.append("=" * 60)
-        
-        return "\n".join(lines)
-
-
-def scan_parameter_sensitivity(
-    objective_fn: Callable[[Dict], Dict],
-    base_params: Dict[str, Any],
-    params_to_scan: Optional[List[str]] = None,
-    variation_range: float = 0.4,
-    n_steps: int = 20
-) -> SensitivityResult:
-    """
-    Convenience function for parameter sensitivity scan.
-    
-    Args:
-        objective_fn: Function taking params and returning metrics
-        base_params: Base parameter values
-        params_to_scan: Parameters to scan (default: all numeric)
-        variation_range: Range to vary (0.4 = ±40%)
-        n_steps: Number of steps
-        
-    Returns:
-        SensitivityResult
-    """
-    config = SensitivityConfig(
-        variation_range=variation_range,
-        n_steps=n_steps,
-    )
-    scanner = ParameterScanner(config=config)
-    return scanner.scan_all_parameters(objective_fn, base_params, params_to_scan)

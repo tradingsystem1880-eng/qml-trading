@@ -1,0 +1,644 @@
+# QML_SYSTEM Comprehensive Architecture Overview
+
+> **Purpose**: Knowledge transfer document for AI systems to fully comprehend, maintain, and extend the QML Trading System.
+> **Date**: 2026-01-07
+> **Version**: 2.0.0 (VRD 2.0 Compliant)
+
+---
+
+## 1. Executive Summary
+
+The **QML (Quasimodo-Like) Forensic Trading System** is a professional algorithmic trading research platform focused on detecting and validating specific chart patterns on BTC/USDT. The system follows a rigorous **VRD 2.0 (Validate, Reproduce, Deploy)** methodology to ensure edge validity before live deployment.
+
+### Core Philosophy
+1. **Validate Reality of Edge** — Statistical proof that patterns predict price movement  
+2. **Understand Why It Works** — Feature analysis of winning vs losing trades  
+3. **Assess Durability** — Walk-forward and regime analysis  
+4. **Identify Failure Modes** — Drawdown and stress testing  
+5. **Define Deployment Rules** — Risk limits and position sizing
+
+---
+
+## 2. File Structure (Exhaustive)
+
+```
+QML_SYSTEM/
+├── cli/                            # Command-line entry points
+│   ├── run_backtest.py             # PRIMARY: Backtest execution with detector
+│   ├── run_grid_search.py          # Parameter optimization loop
+│   └── run_validation.py           # VRD validation suite runner
+│
+├── src/                            # Core library (importable modules)
+│   ├── __init__.py                 # Package initialization
+│   ├── main.py                     # Alternative entry point
+│   ├── schemas.py                  # Data contracts & validation
+│   ├── data_engine.py              # Master data fetching/storage
+│   │
+│   ├── core/                       # Fundamental abstractions
+│   │   ├── __init__.py
+│   │   └── models.py               # Candle, Signal, Trade, SwingPoint dataclasses
+│   │
+│   ├── detection/                  # Pattern detection algorithms
+│   │   ├── __init__.py             # Factory exports
+│   │   ├── base.py                 # BaseDetector ABC
+│   │   ├── factory.py              # get_detector() factory function
+│   │   ├── v2_atr.py               # PRIMARY: ATRDetector (v2.0.0)
+│   │   ├── v1_rolling.py           # LEGACY: RollingWindowDetector
+│   │   ├── swing.py                # Swing point detection
+│   │   ├── structure.py            # Market structure analysis
+│   │   ├── choch.py                # Change of Character detection
+│   │   ├── bos.py                  # Break of Structure detection
+│   │   ├── detector.py             # Legacy composite detector
+│   │   └── legacy/                 # Archived versions (v1.0.0, v1.1.0)
+│   │
+│   ├── validation/                 # VRD 2.0 statistical validation
+│   │   ├── __init__.py             # Module exports
+│   │   ├── base.py                 # Base validation classes
+│   │   ├── validator.py            # StrategyValidator orchestrator
+│   │   ├── permutation.py          # Permutation test (edge significance)
+│   │   ├── monte_carlo.py          # Monte Carlo simulation
+│   │   ├── bootstrap.py            # Block bootstrap confidence intervals
+│   │   ├── walk_forward.py         # Purged walk-forward optimization
+│   │   ├── database.py             # Experiment tracking database
+│   │   └── tracker.py              # Validation state tracking
+│   │
+│   ├── reporting/                  # Output generation
+│   │   ├── __init__.py
+│   │   ├── dossier.py              # HTML report generator
+│   │   ├── storage.py              # ExperimentLogger (SQLite)
+│   │   ├── visuals.py              # Plotly chart generation
+│   │   └── templates/              # Jinja2 HTML templates
+│   │
+│   ├── pipeline/                   # Orchestration
+│   │   ├── __init__.py
+│   │   └── orchestrator.py         # ValidationOrchestrator (full pipeline)
+│   │
+│   ├── features/                   # Feature engineering
+│   │   ├── __init__.py
+│   │   ├── engineer.py             # FeatureEngineer class
+│   │   ├── library.py              # Feature calculation library
+│   │   └── regime.py               # Market regime detection
+│   │
+│   ├── ml/                         # Machine learning
+│   │   ├── __init__.py
+│   │   ├── predictor.py            # XGBoostPredictor
+│   │   ├── model.py                # Model definitions
+│   │   ├── trainer.py              # Training pipeline
+│   │   └── labeler.py              # Trade outcome labeling
+│   │
+│   ├── backtest/                   # Backtesting engine
+│   │   ├── __init__.py
+│   │   └── engine.py               # BacktestEngine implementation
+│   │
+│   ├── data/                       # Data handling
+│   │   ├── __init__.py
+│   │   ├── fetcher.py              # Exchange data fetcher
+│   │   ├── enhanced_fetcher.py     # Multi-source fetcher
+│   │   ├── database.py             # Data persistence
+│   │   ├── integrity.py            # DataValidator
+│   │   └── models.py               # Data-specific models
+│   │
+│   ├── analysis/                   # Post-trade analysis
+│   │   └── sensitivity.py          # Parameter sensitivity visualization
+│   │
+│   ├── deployment/                 # Production utilities
+│   │   ├── gatekeeper.py           # Deployment checks
+│   │   └── paper_trader.py         # Paper trading execution
+│   │
+│   ├── strategies/                 # Strategy adapters
+│   ├── trading/                    # Live trading interface
+│   ├── alerts/                     # Alert system
+│   ├── dashboard/                  # Web dashboard
+│   └── utils/                      # Shared utilities
+│       └── indicators.py           # Technical indicator calculations
+│
+├── config/                         # Configuration
+│   ├── __init__.py
+│   ├── default.yaml                # Default parameters
+│   ├── settings.py                 # Settings loader
+│   └── strategies/                 # Strategy-specific configs
+│
+├── data/                           # Data storage
+│   ├── processed/                  # Clean parquet files
+│   │   └── BTC/
+│   │       ├── 1h_master.parquet   # 1-hour OHLCV + ATR
+│   │       └── 4h_master.parquet   # 4-hour OHLCV + ATR (PRIMARY)
+│   ├── raw/                        # Raw API downloads
+│   └── samples/                    # Sample data for tests
+│
+├── results/                        # Output artifacts
+│   ├── experiments.db              # SQLite experiment log
+│   ├── atr/                        # ATR strategy dossiers
+│   ├── charts/                     # Generated visualizations
+│   └── reports/                    # HTML dossiers
+│
+├── tests/                          # Test suite
+│   ├── test_detection.py           # Detection unit tests
+│   ├── test_statistics.py          # Statistical validation tests
+│   ├── test_vrd.py                 # VRD module tests
+│   ├── test_walk_forward.py        # Walk-forward tests
+│   ├── unit/                       # Unit tests
+│   └── integration/                # Integration tests
+│
+├── notebooks/                      # Research notebooks
+│   └── visual_lab.ipynb
+│
+├── docs/                           # Documentation
+├── archive/                        # Legacy code (reference only)
+├── models/                         # Trained ML models
+├── logs/                           # Runtime logs
+├── docker/                         # Docker configs
+├── scripts/                        # Utility scripts
+│
+├── README.md                       # Project overview
+├── SYSTEM_CONTEXT.md               # AI agent memory
+├── ROAD MAP.md                     # Development roadmap
+├── QML PATTERN EXPLAINED.md        # Pattern theory
+├── BETA DETECTION LOGIC.md         # Detection algorithm docs
+├── pyproject.toml                  # Python project config
+├── requirements.txt                # Dependencies
+├── Dockerfile                      # Container definition
+└── docker-compose.yml              # Orchestration config
+```
+
+---
+
+## 3. System Workflow (Brain-Body-Recorder Pattern)
+
+The system follows a **three-layer architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 python -m cli.run_backtest                   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  📂 DATA LOADER                                              │
+│  data/processed/BTC/4h_master.parquet → DataFrame           │
+│                                                              │
+│  Key Function: load_master_data()                            │
+│  Location: src/data_engine.py                                │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  🧠 BRAIN: Pattern Detection (src/detection/)               │
+│                                                              │
+│  ├── ATRDirectionalChange     Swing point detection         │
+│  │   └── Updates bar-by-bar, confirms extremes via ATR      │
+│  │                                                           │
+│  └── ATRDetector              QML pattern assembly          │
+│      └── 3 extremes → Pattern → Signal with SL/TP           │
+│                                                              │
+│  Output: List[Signal] with:                                  │
+│    - entry_price, stop_loss, take_profit                     │
+│    - validity_score (0.0-1.0)                                │
+│    - pattern geometry (p1-p5 coordinates)                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  🏋️ BODY: Backtest Engine (cli/run_backtest.py)             │
+│                                                              │
+│  BacktestEngine class:                                       │
+│    - Consumes signals chronologically                        │
+│    - Opens trades at signal.entry_price                      │
+│    - Tracks SL/TP exit conditions each bar                   │
+│    - Records equity curve and drawdowns                      │
+│                                                              │
+│  Output: Dict with:                                          │
+│    - trades: List[Trade]                                     │
+│    - metrics: sharpe, win_rate, profit_factor, max_dd        │
+│    - equity_curve: List[float]                               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  📼 FLIGHT RECORDER: Reporting (src/reporting/)              │
+│                                                              │
+│  ExperimentLogger (storage.py):                              │
+│    - SQLite database: results/experiments.db                 │
+│    - Stores: run_id, config, metrics, timestamp              │
+│    - Queryable: get_top_runs(), get_recent_runs()            │
+│                                                              │
+│  DossierGenerator (dossier.py):                              │
+│    - Standalone HTML report                                  │
+│    - Embedded Plotly charts (equity, drawdown)               │
+│    - Trade log table                                         │
+│    - Full config for reproducibility                         │
+│                                                              │
+│  Output:                                                     │
+│    - results/experiments.db                                  │
+│    - results/atr/{run_id}_dossier.html                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Detailed Flow Sequence
+
+1. **CLI Invocation**: `python -m cli.run_backtest --symbol BTCUSDT --timeframe 4h`
+
+2. **Configuration Loading**:
+   - `config/default.yaml` → parsed into `BacktestConfig` dataclass
+   - CLI args override YAML defaults
+
+3. **Data Loading** (`load_data()`):
+   - Loads parquet from `data/processed/BTC/4h_master.parquet`
+   - Validates schema: time, Open, High, Low, Close, Volume, ATR
+   - Filters by date range if specified
+
+4. **Detector Initialization** (`get_detector()`):
+   - Factory pattern selects detector: `"atr"` → `ATRDetector`
+   - Configures: `atr_lookback=14`, `window_size=200`
+
+5. **Pattern Detection** (`detector.detect(df)`):
+   - Bar-by-bar iteration with `ATRDirectionalChange`
+   - On each new confirmed extreme, check for pattern
+   - Pattern validation: geometric ratios, ATR-normalized depth
+   - Generate `Signal` with entry, SL, TP, validity score
+
+6. **Trade Simulation** (`engine.run(df, signals)`):
+   - Iterate bars chronologically
+   - Match pending signals to current bar
+   - Open trade if signal time matches
+   - Check SL/TP conditions on each bar for open trades
+   - Close on hit or at end of data
+
+7. **Metrics Calculation** (`_calculate_metrics()`):
+   - Win rate, profit factor, Sharpe ratio
+   - Maximum drawdown, recovery factor
+   - Average trade duration
+
+8. **Result Persistence**:
+   - `ExperimentLogger.log_run()` → SQLite insert
+   - `DossierGenerator.generate_html()` → HTML file
+
+---
+
+## 4. Core Component Deep-Dive
+
+### 4.1 Detection Module (`src/detection/`)
+
+#### ATRDirectionalChange Engine
+```python
+# Location: src/detection/v2_atr.py, lines 80-266
+
+class ATRDirectionalChange:
+    """ATR-based swing point detector."""
+    
+    def __init__(self, atr_lookback: int = 14):
+        # State: pending extreme, confirmed extremes list, direction
+        
+    def update(self, i, time_index, high, low, close):
+        """Process bar i, check for extreme confirmation.
+        
+        Confirmation Rule: Price reverses by 1 ATR from pending extreme.
+        """
+        
+    @property
+    def extreme_count(self) -> int:
+        """Number of confirmed extremes."""
+```
+
+#### ATRDetector Pattern Assembly
+```python
+# Location: src/detection/v2_atr.py, lines 273-713
+
+class ATRDetector(BaseDetector):
+    """QML Pattern Detector using ATR Directional Change."""
+    
+    def detect(self, candles, symbol, timeframe) -> List[Signal]:
+        """Main entry point.
+        
+        1. Initialize ATRDirectionalChange
+        2. Iterate bars, call update()
+        3. When new extreme confirmed, check for 3-extreme pattern
+        4. Validate pattern geometry
+        5. Generate Signal if valid
+        """
+        
+    def _validate_bullish_pattern(self, left, head, right, atr):
+        """Pattern validation criteria:
+        - head_depth_ratio: 0.5 <= depth/ATR <= 3.0
+        - Shoulder symmetry check
+        - Neckline angle constraints
+        """
+```
+
+### 4.2 Core Models (`src/core/models.py`)
+
+| Class | Purpose | Key Fields |
+|-------|---------|------------|
+| `Candle` | OHLCV unit | timestamp, open, high, low, close, volume |
+| `Signal` | Trade opportunity | entry_price, stop_loss, take_profit, validity_score, direction |
+| `Trade` | Trade lifecycle | entry_time, exit_time, pnl_pct, result, side |
+| `SwingPoint` | Market pivot | timestamp, price, swing_type (HIGH/LOW) |
+
+### 4.3 Validation Module (`src/validation/`)
+
+The validation pipeline implements VRD 2.0:
+
+```python
+# Location: src/validation/validator.py
+
+class StrategyValidator:
+    """Orchestrates 4 validation methods."""
+    
+    def run_full_validation(self, strategy_name, df, objective_fn, param_grid):
+        """
+        1. Purged Walk-Forward (n_folds=10)
+           - Train on IS, test on OOS
+           - Purge + embargo to prevent leakage
+           
+        2. Permutation Test (n=10,000)
+           - Shuffle returns, recalculate Sharpe
+           - P-value for edge significance
+           
+        3. Monte Carlo (n=50,000)
+           - Simulate equity paths
+           - 5%/95% confidence cones
+           
+        4. Bootstrap (n=5,000)
+           - Block bootstrap for autocorrelation
+           - CI on Sharpe, win rate, max DD
+        """
+```
+
+### 4.4 Pipeline Orchestrator (`src/pipeline/orchestrator.py`)
+
+```python
+class ValidationOrchestrator:
+    """7-stage pipeline execution."""
+    
+    Stages:
+    1. DATA_LOADING      → Load & validate OHLCV
+    2. FEATURE_ENGINEERING → 200+ features per pattern
+    3. REGIME_DETECTION  → K-means market regimes
+    4. WALK_FORWARD      → Purged WFO
+    5. STATISTICAL_TESTING → Permutation + MC
+    6. DIAGNOSTICS       → Feature importance
+    7. REPORT_GENERATION → HTML dossier
+```
+
+### 4.5 Feature Engineering (`src/features/engineer.py`)
+
+Features are organized into categories:
+
+| Category | Examples |
+|----------|----------|
+| Geometric | head_depth_ratio, shoulder_symmetry, neckline_slope |
+| Temporal | pattern_duration_bars |
+| Volume | volume_at_head, obv_divergence |
+| Context | atr_percentile, rsi_at_entry, adx_strength |
+| Correlation | btc_correlation |
+
+### 4.6 ML Predictor (`src/ml/predictor.py`)
+
+```python
+class XGBoostPredictor:
+    """Binary classifier for trade outcomes."""
+    
+    def prepare_data(trades_df, df) -> (X, y):
+        """Extract features, label WIN=1, LOSS=0."""
+        
+    def train(X, y, test_size=0.2):
+        """Train XGBoost with early stopping."""
+        
+    def predict(signal) -> float:
+        """Probability of WIN (0.0-1.0)."""
+```
+
+---
+
+## 5. Design Rationale
+
+### 5.1 Architectural Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Brain-Body-Recorder** | Separation of concerns: detection is pure, backtest is stateful, logging is persistent |
+| **ATR-based Detection** | Price-action driven replaces naive windowing; pivots confirmed by volatility |
+| **Dataclasses everywhere** | Type safety, IDE support, serialization via `asdict()` |
+| **YAML configuration** | Human-readable, version-controllable, no code changes for param tuning |
+| **SQLite for experiments** | Lightweight, queryable, portable; no external DB required |
+| **Plotly for charts** | Interactive, embeddable HTML, professional appearance |
+
+### 5.2 Coding Conventions
+
+- **Docstrings**: NumPy style with Args/Returns sections
+- **Type hints**: All function signatures typed
+- **Constants**: UPPER_SNAKE_CASE at module top
+- **Error handling**: Custom exceptions in `src/core/exceptions.py`
+- **Logging**: `logging.getLogger(__name__)` pattern
+
+### 5.3 Performance Considerations
+
+- **NumPy vectorization**: Price arrays processed without Python loops where possible
+- **Lazy loading**: Parquet files load only requested columns
+- **Caching**: ATR calculated once, stored in master parquet
+- **Parallel execution**: `n_jobs` parameter in orchestrator for multi-core
+
+---
+
+## 6. Usage Process
+
+### 6.1 Setup
+
+```bash
+# Clone and setup
+cd QML_SYSTEM
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Build master data (fetches 4 years BTC OHLCV)
+python -m src.data_engine
+```
+
+### 6.2 Running Backtests
+
+```bash
+# Default (BTCUSDT 4h, ATR detector)
+python -m cli.run_backtest
+
+# Custom parameters
+python -m cli.run_backtest \
+  --symbol BTCUSDT \
+  --timeframe 4h \
+  --detector atr \
+  --min-validity 0.7 \
+  --stop-loss-atr 1.5 \
+  --take-profit-atr 3.0
+
+# Grid search
+python -m cli.run_grid_search
+```
+
+### 6.3 Running Validation
+
+```bash
+# Full VRD validation
+python -m cli.run_validation --trades results/trades.csv
+
+# Or programmatically:
+from src.validation import create_validator
+
+validator = create_validator(
+    output_dir="validation_results",
+    n_folds=10,
+    n_permutations=10000
+)
+report = validator.run_statistical_validation(trade_returns)
+```
+
+### 6.4 Querying Experiments
+
+```python
+from src.reporting import ExperimentLogger
+
+logger = ExperimentLogger()
+
+# Best by Sharpe
+best = logger.get_top_runs(metric='sharpe_ratio', limit=5)
+
+# Filter by symbol
+btc_runs = logger.query_runs(symbol='BTCUSDT', min_trades=30)
+```
+
+---
+
+## 7. Integration Points
+
+### 7.1 External Dependencies
+
+| Library | Purpose | Integration |
+|---------|---------|-------------|
+| `ccxt` | Exchange data fetching | `src/data/fetcher.py` |
+| `pandas` | Data manipulation | Throughout |
+| `numpy` | Numerical operations | Detection, validation |
+| `plotly` | Interactive charts | `src/reporting/visuals.py` |
+| `xgboost` | ML classifier | `src/ml/predictor.py` |
+| `scipy` | Statistical tests | `src/validation/` |
+| `pyarrow` | Parquet I/O | Data engine |
+| `pyyaml` | Config parsing | `config/settings.py` |
+| `jinja2` | HTML templating | `src/reporting/dossier.py` |
+
+### 7.2 Data Interfaces
+
+**Input Contract (OHLCV)**:
+```python
+# Required columns
+['time', 'Open', 'High', 'Low', 'Close', 'Volume', 'ATR']
+
+# time: datetime64[ns] UTC
+# OHLCV: float64
+# ATR: float64 (pre-calculated)
+```
+
+**Output Contract (Pattern CSV)**:
+```python
+REQUIRED_PATTERN_COLUMNS = [
+    'pattern_id', 'direction', 'validity_score',
+    'p1_timestamp', 'p1_price',  # Left shoulder
+    'p2_timestamp', 'p2_price',  # First pivot
+    'p3_timestamp', 'p3_price',  # Head
+    'p4_timestamp', 'p4_price',  # Second pivot
+    'p5_timestamp', 'p5_price',  # Entry point
+    'entry_price', 'stop_loss', 'take_profit',
+    'result', 'pnl_pct'
+]
+```
+
+### 7.3 CLI Interface
+
+```bash
+# Pattern detection workflow
+/run-atr-detector  # Defined in .agent/workflows/
+
+# CLI arguments follow argparse conventions
+--symbol, --timeframe, --detector, --min-validity
+--start-date, --end-date
+--output-dir
+```
+
+---
+
+## 8. Potential Limitations and Future Considerations
+
+### 8.1 Known Constraints
+
+| Limitation | Impact | Mitigation |
+|------------|--------|------------|
+| Single-asset focus (BTC) | No cross-asset correlation | Future: Multi-asset support |
+| Sequential trade execution | No concurrent positions | Config: `max_concurrent_trades=1` |
+| Lookback bias in pattern definition | Feature leakage risk | Purged walk-forward validation |
+| Fixed SL/TP ratios | Suboptimal for volatility regimes | Adaptive ATR multipliers |
+| XGBoost only | Limited model exploration | Future: Ensemble models |
+
+### 8.2 Enhancement Roadmap
+
+From `ROAD MAP.md`:
+1. **Bearish patterns**: Inverse QML detection (planned)
+2. **Multi-timeframe analysis**: Confluence detection across 1h/4h/D
+3. **Real-time detection**: WebSocket integration for live markets
+4. **Portfolio management**: Multi-position risk allocation
+5. **Alternative ML**: LightGBM, neural networks for pattern classification
+
+### 8.3 Technical Debt
+
+- `src/detection/detector.py` duplicates logic with `v2_atr.py`
+- Some legacy code remains in `archive/` without clear deprecation notes
+- Test coverage gaps in `src/ml/` and `src/deployment/`
+
+---
+
+## 9. Quick Reference
+
+### Key File → Purpose Mapping
+
+| When you need to... | Look at... |
+|---------------------|------------|
+| Run a backtest | `cli/run_backtest.py` |
+| Add a new detector | `src/detection/base.py` → implement `BaseDetector` |
+| Modify pattern validation | `src/detection/v2_atr.py` → `_validate_bullish_pattern()` |
+| Add new features | `src/features/engineer.py` |
+| Change validation params | `config/default.yaml` → `validation:` section |
+| Query past experiments | `src/reporting/storage.py` → `ExperimentLogger` |
+| Customize HTML reports | `src/reporting/dossier.py` |
+| Understand data format | `src/schemas.py` |
+
+### Command Cheat Sheet
+
+```bash
+# Data
+python -m src.data_engine                    # Build master store
+
+# Backtest
+python -m cli.run_backtest                   # Default run
+python -m cli.run_grid_search                # Param search
+
+# Validation
+python -m cli.run_validation                 # Full VRD
+
+# Dashboard
+python -m src.dashboard.app                  # Web UI
+
+# Tests
+pytest tests/ -v                             # All tests
+pytest tests/test_detection.py -v            # Detection only
+```
+
+---
+
+## 10. Summary for AI Systems
+
+To maintain and extend this system:
+
+1. **Understand the flow**: Data → Detection → Backtest → Validation → Report
+2. **Respect dataclasses**: Always use `Candle`, `Signal`, `Trade` from `src/core/models.py`
+3. **Follow factory patterns**: Use `get_detector()` not direct instantiation
+4. **Validate statistically**: Never trust backtest results without VRD 2.0 validation
+5. **Log everything**: Use `ExperimentLogger` for reproducibility
+6. **Configuration over code**: Parameters go in YAML, not hardcoded
+
+The system is designed for **forensic analysis** — every decision should be traceable, every result reproducible.

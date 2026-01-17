@@ -9,14 +9,11 @@ This is the FIX for the detection issue where only 1-3 patterns
 were found instead of the expected 100+ patterns.
 """
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Set
+from pathlib import Path
 import time
 import ccxt
 from collections import defaultdict

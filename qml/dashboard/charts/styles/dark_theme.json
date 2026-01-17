@@ -1,0 +1,44 @@
+{
+    "layout": {
+        "background": {
+            "color": "#0F1419"
+        },
+        "textColor": "#D9D9D9"
+    },
+    "grid": {
+        "vertLines": {
+            "color": "#1E252E",
+            "visible": true
+        },
+        "horzLines": {
+            "color": "#1E252E",
+            "visible": true
+        }
+    },
+    "crosshair": {
+        "mode": 1,
+        "vertLine": {
+            "color": "#38BDF8",
+            "width": 1,
+            "style": 3,
+            "labelBackgroundColor": "#1E252E"
+        },
+        "horzLine": {
+            "color": "#38BDF8",
+            "width": 1,
+            "style": 3,
+            "labelBackgroundColor": "#1E252E"
+        }
+    },
+    "priceScale": {
+        "borderColor": "#2B3139"
+    },
+    "timeScale": {
+        "borderColor": "#2B3139",
+        "timeVisible": true,
+        "secondsVisible": false
+    },
+    "watermark": {
+        "visible": false
+    }
+}

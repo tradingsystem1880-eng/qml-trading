@@ -407,13 +407,19 @@ def load_data(config: BacktestConfig) -> pd.DataFrame:
     if config.data_path:
         data_path = Path(config.data_path)
     else:
+        # Normalize symbol: "BTCUSDT" -> "BTCUSDT", "BTC/USDT" -> "BTCUSDT"
+        symbol_normalized = config.symbol.replace('/', '').replace('-', '').upper()
+        
         # Look in standard locations
-        symbol_clean = config.symbol.replace('/', '').replace('USDT', '')
         possible_paths = [
-            PROJECT_ROOT / f"data/processed/{symbol_clean}/{config.timeframe}_master.parquet",
-            PROJECT_ROOT / f"data/processed/BTC/{config.timeframe}_master.parquet",
-            PROJECT_ROOT / f"data/{symbol_clean}_{config.timeframe}.parquet",
+            PROJECT_ROOT / f"data/processed/{symbol_normalized}/{config.timeframe}_master.parquet",
+            # Backward compatibility: try BTC folder for BTCUSDT
+            PROJECT_ROOT / f"data/processed/BTC/{config.timeframe}_master.parquet" if 'BTC' in symbol_normalized else None,
+            PROJECT_ROOT / f"data/{symbol_normalized}_{config.timeframe}.parquet",
         ]
+        
+        # Filter out None paths
+        possible_paths = [p for p in possible_paths if p is not None]
         
         data_path = None
         for path in possible_paths:
@@ -424,7 +430,8 @@ def load_data(config: BacktestConfig) -> pd.DataFrame:
         if data_path is None:
             raise FileNotFoundError(
                 f"No data found for {config.symbol} {config.timeframe}. "
-                f"Searched: {[str(p) for p in possible_paths]}"
+                f"Searched: {[str(p) for p in possible_paths]}\n"
+                f"Run: python -m src.data_engine --symbol {config.symbol} to fetch data."
             )
     
     print(f"📂 Loading data from: {data_path}")
@@ -618,6 +625,13 @@ def main():
         help="Minimum pattern validity score"
     )
     
+    # ML Training
+    parser.add_argument(
+        "--train-ml",
+        action="store_true",
+        help="Train XGBoost model on trade outcomes"
+    )
+    
     args = parser.parse_args()
     
     # Build config
@@ -678,6 +692,38 @@ def main():
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         trades_df.to_csv(csv_path, index=False)
         print(f"   Trades exported: {csv_path}")
+    
+    # =========================================================================
+    # ML TRAINING (optional)
+    # =========================================================================
+    if args.train_ml and trades_df is not None and len(trades_df) >= 20:
+        print("\n🤖 Step 7: Training ML Model...")
+        try:
+            from src.ml.predictor import XGBoostPredictor
+            
+            predictor = XGBoostPredictor()
+            X, y = predictor.prepare_data(trades_df)
+            metrics = predictor.train(X, y)
+            
+            # Save model
+            model_path = PROJECT_ROOT / "results" / "models" / "xgb_latest.json"
+            model_path.parent.mkdir(parents=True, exist_ok=True)
+            predictor.save(str(model_path))
+            
+            print(f"   Model trained on {len(trades_df)} trades")
+            print(f"   Accuracy: {metrics['accuracy']:.2%}, AUC: {metrics['auc']:.3f}")
+            print(f"   Model saved: {model_path}")
+            
+            # Print top features
+            print("   Top 5 Features:")
+            for feat, imp in predictor.get_top_features(5):
+                print(f"     - {feat}: {imp:.4f}")
+        except ImportError:
+            print("   ⚠️ XGBoost not installed: pip install xgboost scikit-learn")
+        except Exception as e:
+            print(f"   ⚠️ ML training failed: {e}")
+    elif args.train_ml:
+        print("\n⚠️ Skipping ML training: Need at least 20 trades")
     
     print("\n" + "=" * 70)
     print(f"  ✅ BACKTEST COMPLETE")

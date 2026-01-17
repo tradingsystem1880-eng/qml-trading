@@ -24,7 +24,6 @@ from loguru import logger
 
 from src.features.library import FeatureLibrary, FeatureLibraryConfig
 from src.analysis.regimes import RegimeClassifier, RegimeConfig, RegimeResult
-from src.analysis.sensitivity import ParameterScanner, SensitivityConfig, SensitivityResult
 from src.validation.database import VRDDatabase
 from src.validation.tracker import ExperimentTracker
 from src.validation.walk_forward import (

@@ -7,16 +7,19 @@ Tests permutation testing, Monte Carlo simulation, and bootstrap confidence inte
 import sys
 from pathlib import Path
 
-# Add project root to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from src.validation.permutation import PermutationTest, PermutationResult, run_permutation_test
-from src.validation.monte_carlo import MonteCarloSimulator, MonteCarloResult, run_monte_carlo
-from src.validation.bootstrap import BlockBootstrap, BootstrapResult, compute_all_confidence_intervals
+# Add project root  to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from src.validation import (
+    PermutationTest, PermutationResult,
+    MonteCarloSimulator, MonteCarloResult,
+    BlockBootstrap, BootstrapResult,
+    run_permutation_test, run_monte_carlo, compute_all_confidence_intervals
+)
 
 
 class TestPermutationTest:

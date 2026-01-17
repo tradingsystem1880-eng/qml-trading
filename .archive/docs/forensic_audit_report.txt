@@ -1,0 +1,625 @@
+================================================================================
+🔬 FORENSIC AUDIT: STATE OF THE UNION REPORT
+📅 Generated: 2026-01-04 11:51:36
+📂 Root: /Users/hunternovotny/Desktop/QML_SYSTEM
+================================================================================
+
+════════════════════════════════════════════════════════════════════════════════
+📁 DIRECTORY TREE STRUCTURE
+════════════════════════════════════════════════════════════════════════════════
+├── 📁 ALGO TRADING PY/
+│   ├── 🐍 atr_directional_change.py
+│   ├── 🐍 head_shoulders.py
+│   ├── 🐍 hierarchical_extremes.py
+│   ├── 🐍 local_extreme.py
+│   ├── 🐍 perceptually_important.py
+│   └── 🐍 rolling_window.py
+├── 📝 BACKTEST_REVALIDATION_REPORT.md
+├── 📝 BETA DETECTION LOGIC.md
+├── 📄 Dockerfile
+├── 📝 NEXT_STEPS.md
+├── 📝 PATTERN_RECONCILIATION_REPORT.md
+├── 📝 QML PATTERN EXPLAINED.md
+├── 🖼️ QML-setup-with-results-3.pdf
+├── 📝 README.md
+├── 📝 ROAD MAP.md
+├── 📝 VISUAL_LAB_GUIDE.md
+├── 📁 archive/
+│   ├── 📊 btc_atr_detection.csv
+│   ├── 📊 btc_backtest_atr_dc.csv
+│   └── 📊 btc_backtest_labels.csv
+├── 📁 config/
+│   ├── 🐍 __init__.py
+│   └── 🐍 settings.py
+├── 📝 cursor_qml_trading_system_strategic_aud.md
+├── 📁 data/
+│   ├── 📊 comprehensive_features.csv
+│   ├── 📊 diagnostic_trades.csv
+│   ├── 📁 processed/
+│   │   └── 📁 BTC/
+│   │       ├── 📊 1h_master.parquet
+│   │       └── 📊 4h_master.parquet
+│   └── 📊 regime_dataset.csv
+├── 🐍 debug_features.py
+├── 📁 docker/
+│   └── 📄 init-db.sql
+├── ⚙️ docker-compose.yml
+├── 📁 docs/
+│   ├── 📝 FINAL_STRATEGY_SPECIFICATION.md
+│   └── 📝 PRE_LAUNCH_VERIFICATION_DOSSIER.md
+├── 🖼️ drawdown_analysis.png
+├── 🖼️ drawdowns.png
+├── 🖼️ equity_curve.png
+├── 📁 experiments/
+│   ├── 📁 exp_01_rolling_v1/
+│   │   ├── 📝 README.md
+│   │   ├── 📊 ohlcv.csv
+│   │   └── 📊 patterns.csv
+│   ├── 📁 exp_02_atr_v2/
+│   │   ├── 📝 README.md
+│   │   ├── 📊 atr_detection.csv
+│   │   ├── 📊 ohlcv.csv
+│   │   └── 📊 patterns.csv
+│   └── 📁 exp_03_backtest_validation/
+│       ├── 📝 README.md
+│       ├── 📊 pattern_audit_matches.csv
+│       ├── 📊 pattern_audit_unmatched.csv
+│       ├── 📊 revalidation_equity.csv
+│       ├── 📊 revalidation_summary.csv
+│       └── 📊 revalidation_trades.csv
+├── 🐍 forensic_audit.py
+├── 📝 forensic_audit_report.txt
+├── 🐍 generate_professional_report.py
+├── 📁 logs/
+│   ├── 📄 errors_2025-12-28.log
+│   ├── 📄 patterns_2025-12-28.log
+│   └── 📄 qml_system_2025-12-28.log
+├── 📁 models/
+│   └── 📊 regime_classifier.pkl
+├── 🖼️ monte_carlo.png
+├── 🖼️ monte_carlo_cones.png
+├── 📁 paper_trading_logs/
+│   ├── 📝 PAPER_TRADING_PROTOCOL.md
+│   ├── 📁 daily/
+│   │   └── ⚙️ week1_day1_20251229.json
+│   ├── ⚙️ scan_summary.json
+│   ├── ⚙️ signals_20251229.json
+│   └── 📁 weekly/
+│       └── 📝 WEEK_1_TRACKING.md
+├── 🖼️ permutation.png
+├── 🖼️ permutation_test.png
+├── ⚙️ pyproject.toml
+├── 🐍 qml_colab_visualizer.py
+├── 📁 qml_strategy_vrd/
+│   ├── 📁 detection_logic/
+│   │   ├── 📁 v1.0.0_flawed_singlepass/
+│   │   │   ├── 🐍 detector.py
+│   │   │   └── ⚙️ params.json
+│   │   ├── 📁 v1.1.0_rolling_window/
+│   │   │   ├── 🐍 detector.py
+│   │   │   └── ⚙️ params.json
+│   │   └── 📁 v2.0.0_atr_directional_change/
+│   │       └── ⚙️ params.json
+│   ├── 📁 experiments/
+│   │   ├── 📁 20230101_000000_BTCUSDT_1h_v1.0.0/
+│   │   │   ├── ⚙️ meta.json
+│   │   │   ├── ⚙️ metrics.json
+│   │   │   └── 📊 trades.csv
+│   │   ├── 📁 20230101_000001_BTCUSDT_1h_v1.1.0/
+│   │   │   ├── ⚙️ meta.json
+... and 263 more items
+
+════════════════════════════════════════════════════════════════════════════════
+📊 FILE INVENTORY BY CATEGORY
+════════════════════════════════════════════════════════════════════════════════
+
+🏷️  Config Files: 62 files (57.3 KB total)
+    → paper_trading_logs/signals_20251229.json (8.1KB)
+    → paper_trading_logs/daily/week1_day1_20251229.json (3.0KB)
+    → results/previous_backtest_validation/dossier_previous_backtest_validation.json (2.4KB)
+    → results/saved_backtest_validation/dossier_saved_backtest_2023_2024.json (2.4KB)
+    → docker-compose.yml (2.3KB)
+
+🏷️  Data Files: 23 files (5951.7 KB total)
+    → data/processed/BTC/1h_master.parquet (2441.2KB)
+    → experiments/exp_02_atr_v2/ohlcv.csv (833.5KB)
+    → data/comprehensive_features.csv (635.3KB)
+    → data/processed/BTC/4h_master.parquet (603.5KB)
+    → experiments/exp_01_rolling_v1/ohlcv.csv (578.3KB)
+
+🏷️  Documentation: 27 files (1579.3 KB total)
+    → cursor_qml_trading_system_strategic_aud.md (1433.2KB)
+    → BETA DETECTION LOGIC.md (24.1KB)
+    → qml_strategy_vrd/forensic_analysis_report.md (14.7KB)
+    → ROAD MAP.md (10.5KB)
+    → validation v1/feature_analysis_report.md (10.3KB)
+
+🏷️  Jupyter Notebooks: 2 files (48.1 KB total)
+    → visual_lab.ipynb (30.1KB)
+    → validation_report.ipynb (18.0KB)
+
+🏷️  Other/Junk: 79 files (13231.3 KB total)
+    → QML-setup-with-results-3.pdf (4207.2KB)
+    → monte_carlo_cones.png (567.5KB)
+    → results/autopsy/20260104_111627_QML_Pattern_Strategy_dc363a04/charts/02_monte_carlo_cones.png (559.5KB)
+    → results/professional_validation/charts/monte_carlo_cones.png (555.6KB)
+    → monte_carlo.png (549.5KB)
+
+🏷️  Python Scripts: 91 files (971.1 KB total)
+    → src/dashboard/app.py (32.8KB)
+    → src/pipeline/orchestrator.py (30.5KB)
+    → strategy_autopsy.py (28.3KB)
+    → src/reporting/dossier.py (26.4KB)
+    → src/analysis/diagnostics.py (25.0KB)
+
+🏷️  Uncategorized: 7 files (152.7 KB total)
+    → logs/qml_system_2025-12-28.log (53.5KB)
+    → results/autopsy_qml_v1/vrd.db (40.0KB)
+    → results/qml_btc_4h_4y_validation/vrd.db (40.0KB)
+    → docker/init-db.sql (12.3KB)
+    → logs/errors_2025-12-28.log (5.4KB)
+
+📈 TOTAL: 291 files scanned
+
+════════════════════════════════════════════════════════════════════════════════
+🐍 PYTHON CODE ANALYSIS
+════════════════════════════════════════════════════════════════════════════════
+
+🚀 POTENTIAL MAIN ENTRY POINTS:
+  📍 src/dashboard/app.py (904 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 src/pipeline/orchestrator.py (867 lines)
+       • Contains backtest logic
+  📍 strategy_autopsy.py (777 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 scripts/full_backtest_revalidation.py (649 lines)
+       • Contains backtest logic
+       • Contains run_backtest function
+  📍 src/validation/validator.py (610 lines)
+       • Contains backtest logic
+  📍 src/backtest/engine.py (588 lines)
+       • Contains backtest logic
+  📍 scripts/atr_detector.py (547 lines)
+       • Has __main__ block
+       • Has main() function
+  📍 qml_strategy_vrd/visualize_patterns.py (534 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 src/validation/database.py (524 lines)
+       • Contains backtest logic
+  📍 src/data_engine.py (497 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+       • Uses argparse (CLI entry)
+  📍 ALGO TRADING PY/head_shoulders.py (473 lines)
+       • Has __main__ block
+  📍 scripts/pattern_audit.py (471 lines)
+       • Contains backtest logic
+  📍 forensic_audit.py (467 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+       • Contains run_backtest function
+       • Contains trade execution
+       • Uses argparse (CLI entry)
+  📍 qml_strategy_vrd/run_experiment.py (454 lines)
+       • Has __main__ block
+       • Has main() function
+       • Uses argparse (CLI entry)
+  📍 scripts/visualize_patterns.py (437 lines)
+       • Has __main__ block
+       • Has main() function
+  📍 generate_professional_report.py (431 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 src/trading/paper_trader.py (414 lines)
+       • Has __main__ block
+       • Uses argparse (CLI entry)
+  📍 scripts/forensic_diagnostic.py (368 lines)
+       • Contains backtest logic
+  📍 qml_strategy_vrd/vr_dashboard.py (330 lines)
+       • Has __main__ block
+       • Has main() function
+       • Uses argparse (CLI entry)
+  📍 tests/test_statistics.py (319 lines)
+       • Has __main__ block
+  📍 qml_strategy_vrd/forensic_analysis.py (315 lines)
+       • Has __main__ block
+       • Has main() function
+  📍 config/settings.py (292 lines)
+       • Contains backtest logic
+  📍 scripts/export_btc_patterns.py (284 lines)
+       • Has __main__ block
+       • Contains backtest logic
+  📍 qml_strategy_vrd/detection_logic/v1.1.0_rolling_window/detector.py (279 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 scripts/rolling_detector.py (279 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 tests/test_detection.py (268 lines)
+       • Has __main__ block
+  📍 tests/test_vrd.py (268 lines)
+       • Has __main__ block
+  📍 scripts/run_pipeline.py (268 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+       • Contains run_backtest function
+       • Uses argparse (CLI entry)
+  📍 validate_previous_backtest.py (242 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 tests/test_walk_forward.py (242 lines)
+       • Has __main__ block
+  📍 src/strategies/qml_adapter.py (241 lines)
+       • Contains backtest logic
+  📍 run_full_validation_on_saved_trades.py (200 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 src/main.py (198 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+       • Contains run_backtest function
+       • Uses argparse (CLI entry)
+  📍 run_autopsy.py (193 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 ALGO TRADING PY/hierarchical_extremes.py (186 lines)
+       • Has __main__ block
+  📍 scripts/sync_data.py (174 lines)
+       • Has __main__ block
+       • Has main() function
+       • Uses argparse (CLI entry)
+  📍 ALGO TRADING PY/atr_directional_change.py (125 lines)
+       • Has __main__ block
+  📍 run_4y_validation.py (120 lines)
+       • Has __main__ block
+       • Has main() function
+       • Contains backtest logic
+  📍 ALGO TRADING PY/rolling_window.py (96 lines)
+       • Has __main__ block
+  📍 ALGO TRADING PY/perceptually_important.py (71 lines)
+       • Has __main__ block
+  📍 debug_features.py (32 lines)
+       • Has __main__ block
+  📍 src/__init__.py (20 lines)
+       • Contains backtest logic
+  📍 src/backtest/__init__.py (11 lines)
+       • Contains backtest logic
+
+🏗️  ARCHITECTURE CLASSIFICATION:
+
+  [DETECTION]
+    → qml_strategy_vrd/visualize_patterns.py
+    → qml_strategy_vrd/detection_logic/v1.0.0_flawed_singlepass/detector.py
+    → qml_strategy_vrd/detection_logic/v1.1.0_rolling_window/detector.py
+    → tests/test_detection.py
+    → scripts/pattern_audit.py
+
+  [EXECUTION]
+    → run_full_validation_on_saved_trades.py
+    → src/trading/paper_trader.py
+
+  [BACKTEST]
+    → run_autopsy.py
+    → validate_previous_backtest.py
+    → run_4y_validation.py
+    → qml_strategy_vrd/run_experiment.py
+    → scripts/run_pipeline.py
+
+  [CONFIG]
+    → config/settings.py
+
+  [VISUALIZATION]
+    → generate_professional_report.py
+    → qml_colab_visualizer.py
+    → src/reporting/visuals.py
+
+  [VALIDATION]
+    → tests/test_walk_forward.py
+    → tests/test_statistics.py
+    → tests/test_vrd.py
+    → src/validation/validator.py
+
+⚠️  LARGEST FILES (Potential Spaghetti):
+  src/dashboard/app.py: 904 lines, 14 functions 
+  src/pipeline/orchestrator.py: 867 lines, 1 functions 
+  strategy_autopsy.py: 777 lines, 3 functions 
+  src/analysis/diagnostics.py: 684 lines, 1 functions 
+  src/reporting/dossier.py: 676 lines, 1 functions 
+  scripts/full_backtest_revalidation.py: 649 lines, 4 functions 
+  src/reporting/visuals.py: 619 lines, 1 functions 
+  qml_strategy_vrd/detection_logic/v1.0.0_flawed_singlepass/detector.py: 610 lines, 1 functions 
+  src/detection/detector.py: 610 lines, 1 functions 
+  src/validation/validator.py: 610 lines, 1 functions 
+
+════════════════════════════════════════════════════════════════════════════════
+📓 JUPYTER NOTEBOOK ANALYSIS
+════════════════════════════════════════════════════════════════════════════════
+
+📓 visual_lab.ipynb
+   Cells: 12 total (5 code, 7 markdown)
+   File Ops: CSV Import, Parquet Import
+
+📓 validation_report.ipynb
+   Cells: 20 total (10 code, 10 markdown)
+
+════════════════════════════════════════════════════════════════════════════════
+📊 DATA & ARTIFACT LOCATIONS
+════════════════════════════════════════════════════════════════════════════════
+
+📂 DATA FILES FOUND:
+  📊 data/processed/BTC/1h_master.parquet (2.38 MB) [.parquet]
+  📊 experiments/exp_02_atr_v2/ohlcv.csv (0.81 MB) [.csv]
+  📊 data/comprehensive_features.csv (0.62 MB) [.csv]
+  📊 data/processed/BTC/4h_master.parquet (0.59 MB) [.parquet]
+  📊 experiments/exp_01_rolling_v1/ohlcv.csv (0.56 MB) [.csv]
+  📊 data/regime_dataset.csv (0.28 MB) [.csv]
+  📊 models/regime_classifier.pkl (0.16 MB) [.pkl]
+  📊 qml_strategy_vrd/experiments/20230101_000000_BTCUSDT_1h_v1.0.0/trades.csv (0.13 MB) [.csv]
+  📊 data/diagnostic_trades.csv (0.13 MB) [.csv]
+  📊 qml_strategy_vrd/experiments/20231230_130000_ETHUSDT_1h_v1.0.0/trades.csv (0.06 MB) [.csv]
+  📊 archive/btc_atr_detection.csv (0.01 MB) [.csv]
+  📊 qml_strategy_vrd/experiments/20230101_000001_BTCUSDT_1h_v1.1.0/trades.csv (0.01 MB) [.csv]
+  📊 qml_strategy_vrd/experiments/20230101_000001_BTCUSDT_1h_v2.0.0/trades.csv (0.01 MB) [.csv]
+  📊 experiments/exp_02_atr_v2/atr_detection.csv (0.01 MB) [.csv]
+  📊 experiments/exp_02_atr_v2/patterns.csv (0.01 MB) [.csv]
+  📊 experiments/exp_01_rolling_v1/patterns.csv (0.01 MB) [.csv]
+  📊 experiments/exp_03_backtest_validation/revalidation_trades.csv (0.01 MB) [.csv]
+  📊 archive/btc_backtest_labels.csv (0.0 MB) [.csv]
+  📊 archive/btc_backtest_atr_dc.csv (0.0 MB) [.csv]
+  📊 experiments/exp_03_backtest_validation/pattern_audit_matches.csv (0.0 MB) [.csv]
+  📊 experiments/exp_03_backtest_validation/revalidation_summary.csv (0.0 MB) [.csv]
+  📊 experiments/exp_03_backtest_validation/pattern_audit_unmatched.csv (0.0 MB) [.csv]
+  📊 experiments/exp_03_backtest_validation/revalidation_equity.csv (0.0 MB) [.csv]
+
+🪙 BTC DATA IDENTIFIED:
+  ✅ archive/btc_backtest_labels.csv
+  ✅ archive/btc_backtest_atr_dc.csv
+  ✅ archive/btc_atr_detection.csv
+  ✅ qml_strategy_vrd/experiments/20230101_000001_BTCUSDT_1h_v1.1.0/trades.csv
+  ✅ qml_strategy_vrd/experiments/20230101_000000_BTCUSDT_1h_v1.0.0/trades.csv
+  ✅ qml_strategy_vrd/experiments/20230101_000001_BTCUSDT_1h_v2.0.0/trades.csv
+  ✅ data/processed/BTC/4h_master.parquet
+  ✅ data/processed/BTC/1h_master.parquet
+
+📁 OUTPUT/RESULTS DIRECTORIES:
+  📂 qml_strategy_vrd/detection_logic/v1.0.0_flawed_singlepass/ (2 files)
+  📂 qml_strategy_vrd/detection_logic/v1.1.0_rolling_window/ (2 files)
+  📂 qml_strategy_vrd/detection_logic/v2.0.0_atr_directional_change/ (1 files)
+  📂 results/professional_validation/ (1 files)
+  📂 results/professional_validation/charts/ (4 files)
+  📂 results/previous_backtest_validation/ (2 files)
+  📂 results/saved_backtest_validation/ (2 files)
+  📂 results/autopsy_qml_v1/ (10 files)
+  📂 results/autopsy_qml_v1/20260103_140406_QML_BULLISH_V1_ee7a3ccf/ (3 files)
+  📂 results/autopsy_qml_v1/20260103_142242_QML_BULLISH_V1_6a722313/ (8 files)
+  📂 results/autopsy_qml_v1/20260103_142155_QML_BULLISH_V1_6a722313/ (3 files)
+  📂 results/autopsy_qml_v1/20260103_142124_QML_BULLISH_V1_ee7a3ccf/ (3 files)
+  📂 results/autopsy_qml_v1/20260103_140440_QML_BULLISH_V1_ee7a3ccf/ (2 files)
+  📂 results/qml_btc_4h_4y_validation/ (6 files)
+  📂 results/qml_btc_4h_4y_validation/20260103_151435_QML_BTC_4H_4Y_da8287b4/ (2 files)
+  📂 results/qml_btc_4h_4y_validation/20260103_151355_QML_BTC_4H_4Y_da8287b4/ (7 files)
+  📂 results/qml_btc_4h_4y_validation/20260103_154321_QML_BTC_4H_4Y_da8287b4/ (7 files)
+  📂 results/autopsy/20260104_111458_QML_Pattern_Strategy_dc363a04/charts/ (4 files)
+  📂 results/autopsy/20260104_111534_QML_Pattern_Strategy_dc363a04/charts/ (4 files)
+  📂 results/autopsy/20260104_111627_QML_Pattern_Strategy_dc363a04/ (1 files)
+  📂 results/autopsy/20260104_111627_QML_Pattern_Strategy_dc363a04/charts/ (4 files)
+  📂 logs/ (3 files)
+  📂 .venv/lib/python3.11/site-packages/jedi/third_party/typeshed/stdlib/2and3/logging/ (3 files)
+  📂 .venv/lib/python3.11/site-packages/numpy/f2py/tests/src/return_logical/ (2 files)
+  📂 .venv/lib/python3.11/site-packages/loguru-0.7.3.dist-info/ (5 files)
+  📂 .venv/lib/python3.11/site-packages/python_json_logger-4.0.0.dist-info/ (5 files)
+  📂 .venv/lib/python3.11/site-packages/python_json_logger-4.0.0.dist-info/licenses/ (2 files)
+  📂 .venv/lib/python3.11/site-packages/prompt_toolkit/output/ (10 files)
+  📂 .venv/lib/python3.11/site-packages/prompt_toolkit/output/__pycache__/ (10 files)
+  📂 .venv/lib/python3.11/site-packages/loguru/ (21 files)
+  📂 .venv/lib/python3.11/site-packages/loguru/__pycache__/ (19 files)
+  📂 .venv/lib/python3.11/site-packages/jupyter_server/static/logo/ (1 files)
+  📂 .venv/lib/python3.11/site-packages/pythonjsonlogger/ (10 files)
+  📂 .venv/lib/python3.11/site-packages/pythonjsonlogger/__pycache__/ (9 files)
+  📂 .venv/lib/python3.11/site-packages/jupyterlab/schemas/@jupyterlab/logconsole-extension/ (2 files)
+  📂 .venv/lib/python3.11/site-packages/zmq/log/ (3 files)
+  📂 .venv/lib/python3.11/site-packages/zmq/log/__pycache__/ (3 files)
+  📂 .venv/share/jupyter/lab/schemas/@jupyterlab/logconsole-extension/ (2 files)
+  📂 paper_trading_logs/ (3 files)
+  📂 paper_trading_logs/daily/ (1 files)
+  📂 paper_trading_logs/weekly/ (1 files)
+  📂 .git/logs/ (1 files)
+  📂 .git/logs/refs/heads/ (1 files)
+
+════════════════════════════════════════════════════════════════════════════════
+🔗 LOGIC MAP & DEPENDENCIES
+════════════════════════════════════════════════════════════════════════════════
+
+📦 INTERNAL MODULE DEPENDENCIES:
+
+  generate_professional_report.py:
+    → imports src.validation.permutation
+    → imports src.validation.monte_carlo
+    → imports src.validation.bootstrap
+    → imports src.reporting.visuals
+
+  debug_features.py:
+    → imports src.features.library
+
+  run_full_validation_on_saved_trades.py:
+    → imports src.validation.permutation
+    → imports src.validation.monte_carlo
+    → imports src.validation.bootstrap
+    → imports src.reporting.dossier
+    → imports src.deployment.gatekeeper
+    → imports src.reporting.visuals
+
+  run_autopsy.py:
+    → imports src.pipeline.orchestrator
+    → imports src.strategies.qml_adapter
+    → imports src.reporting.dossier
+    → imports src.deployment.gatekeeper
+
+  validate_previous_backtest.py:
+    → imports src.validation.permutation
+    → imports src.validation.monte_carlo
+    → imports src.validation.bootstrap
+    → imports src.reporting.dossier
+    → imports src.deployment.gatekeeper
+
+  run_4y_validation.py:
+    → imports src.pipeline.orchestrator
+    → imports src.strategies.qml_adapter
+    → imports src.reporting.visuals
+    → imports src.reporting.dossier
+
+  strategy_autopsy.py:
+    → imports src.validation.permutation
+    → imports src.validation.monte_carlo
+    → imports src.validation.bootstrap
+    → imports src.reporting.visuals
+
+  qml_strategy_vrd/run_experiment.py:
+    → imports src.detection.detector
+    → imports src.data.models
+
+  qml_strategy_vrd/detection_logic/v1.0.0_flawed_singlepass/detector.py:
+    → imports src.data.database
+    → imports src.data.fetcher
+    → imports src.data.models
+    → imports src.detection.bos
+    → imports src.detection.choch
+    → imports src.detection.structure
+    → imports src.detection.swing
+    → imports src.utils.indicators
+
+════════════════════════════════════════════════════════════════════════════════
+🎛️  DISCOVERED PARAMETERS
+════════════════════════════════════════════════════════════════════════════════
+
+Potential tunable parameters found:
+  • ATR
+  • DEFAULT_ATR_PERIOD
+  • EMA
+  • LOOKBACK
+  • Lookback
+  • PERIOD
+  • Period
+  • RSI
+  • SMA
+  • SWING_WINDOW
+  • Sma
+  • THRESHOLD
+  • TIMEFRAME_THRESHOLD
+  • Threshold
+  • WINDOW
+  • Window
+  • _check_is_oos_ratio
+  • _rolling_window
+  • adx_period
+  • atr
+  • atr_period
+  • avg_expansion_ratio
+  • batch_size
+  • bb_period
+  • bearish_ratio
+  • block_size
+  • bootstrap_block_size
+  • bos_volume_spike_threshold
+  • btc_window
+  • bullish_ratio
+  • c_window
+  • calmar_ratio
+  • correlation_window
+  • eMa
+  • ema
+  • expansion_ratio
+  • fast_period
+  • fetch_long_short_ratio
+  • fold_size
+  • h_window
+  • head_depth_ratio
+  • height_ratio
+  • ind_window
+  • is_oos_ratio
+  • is_to_oos_ratio
+  • kill_switch_threshold
+  • l_window
+  • long_short_ratio
+  • lookback
+  • ma_period
+  • max_drawdown_limit
+  • max_is_oos_ratio
+  • min_sharpe_threshold
+  • min_threshold
+  • n_window
+  • p_value_threshold
+  • period
+  • pool_size
+  • position_size
+  • prediction_threshold
+  • price_window
+  • rSi
+  • range_size
+  • rate_limit
+  • rolling_window
+  • rsi
+  • rsi_period
+  • sharpe_ratio
+  • signal_period
+  • significance_threshold
+  • slow_period
+  • sma
+  • sortino_ratio
+  • st_size
+  • step_size
+  • stop_loss
+  • structure_atr_threshold
+  • swing_window
+  • symbol_window
+  • take_profit
+  • test_size
+  • threshold
+  • to_period
+  • total_size
+  • train_ratio
+  • train_size
+  • trend_strength_threshold
+  • vol_threshold
+  • vol_window
+  • volume_period
+  • volume_ratio
+  • volume_spike_threshold
+  • window
+  • window_size
+
+════════════════════════════════════════════════════════════════════════════════
+📋 EXECUTIVE SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+    📁 Structure:     17 top-level directories
+    🐍 Python Files:  91 scripts
+    📓 Notebooks:     2 notebooks
+    📊 Data Files:    23 data files
+    📝 Documentation: 27 docs
+    
+    🏗️  Architecture Assessment:
+    
+    ✅ SEPARATION EXISTS: Detection and Execution logic are in different files
+    🍝 SPAGHETTI DETECTED: Files with 800+ lines exist
+    ⚠️  ROOT CLUTTER: 9 Python files in root directory
+
+================================================================================
+🔬 FORENSIC AUDIT COMPLETE
+================================================================================

@@ -1,0 +1,14 @@
+{
+    "experiment_id": "20230101_000000_BTCUSDT_1h_v1.0.0",
+    "detection_logic_version": "v1.0.0_flawed_singlepass",
+    "symbol": "BTC/USDT",
+    "timeframe": "1h",
+    "data_range": {
+        "start": "2022-01-01",
+        "end": "2024-06-25"
+    },
+    "run_timestamp": "2025-12-29T00:00:00Z",
+    "notes": "Migrated from original backtest. This logic has data leakage issues due to single-pass detection approach.",
+    "migration_source": "data/comprehensive_features.csv",
+    "original_report": "validation/forensic_audit_report.md"
+}

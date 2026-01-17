@@ -5,14 +5,10 @@ Orchestrates the complete QML pattern detection and alerting pipeline.
 """
 
 import argparse
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from config.settings import settings
 from src.utils.logging import setup_logging

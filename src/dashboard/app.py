@@ -4,18 +4,14 @@ QML Trading System Dashboard - Premium Edition
 Professional trading dashboard with real-time pattern detection.
 """
 
-import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, List, Any
 import json
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import sys
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 try:
     import streamlit as st
@@ -30,6 +26,7 @@ from src.data.fetcher import DataFetcher
 from src.detection.detector import QMLDetector
 from src.features.regime import RegimeClassifier
 from src.data.models import QMLPattern, PatternType
+from src.dashboard.components.tradingview_chart import render_pattern_chart, render_mini_chart
 
 
 # Page config
@@ -302,84 +299,45 @@ def run_scan(symbols: List[str], timeframes: List[str], min_validity: float = 0.
     return patterns
 
 
-def create_mini_chart(df: pd.DataFrame, height: int = 150) -> go.Figure:
-    """Create a mini sparkline chart."""
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=df.index if isinstance(df.index, pd.DatetimeIndex) else df['time'],
-        y=df['close'],
-        mode='lines',
-        line=dict(color='#0ea5e9', width=2),
-        fill='tozeroy',
-        fillcolor='rgba(14, 165, 233, 0.1)'
-    ))
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=height,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False),
-        showlegend=False
-    )
-    return fig
+# Note: create_mini_chart is now handled by render_mini_chart from tradingview_chart.py
+# Keeping a simple wrapper for compatibility
+def create_mini_chart_wrapper(df: pd.DataFrame, container_key: str, height: int = 80):
+    """Wrapper to render mini chart in current container."""
+    render_mini_chart(df, height=height, key=container_key)
 
 
-def create_pattern_chart(pattern_data: Dict) -> go.Figure:
-    """Create detailed pattern chart."""
+# Note: create_pattern_chart is now handled by render_pattern_chart from tradingview_chart.py
+# Wrapper for compatibility
+def create_pattern_chart_wrapper(pattern_data: Dict, container_key: str):
+    """Render pattern chart using TradingView Lightweight Charts."""
     pattern = pattern_data['pattern']
     df = pattern_data['df'].copy()
     
+    # Prepare dataframe
     if 'time' in df.columns:
         df['time'] = pd.to_datetime(df['time'])
         if df['time'].dt.tz is not None:
             df['time'] = df['time'].dt.tz_localize(None)
-        df = df.set_index('time')
+    else:
+        df = df.reset_index()
+        df.rename(columns={'index': 'time'}, inplace=True)
     
     df = df.tail(100)
     
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
-                       vertical_spacing=0.05, row_heights=[0.75, 0.25])
-    
-    # Candlesticks
-    fig.add_trace(go.Candlestick(
-        x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'],
-        increasing_line_color='#22c55e', decreasing_line_color='#ef4444',
-        increasing_fillcolor='#22c55e', decreasing_fillcolor='#ef4444',
-        name='Price'
-    ), row=1, col=1)
-    
-    # Volume
-    colors = ['#22c55e' if c >= o else '#ef4444' for c, o in zip(df['close'], df['open'])]
-    fig.add_trace(go.Bar(x=df.index, y=df['volume'], marker_color=colors, 
-                        opacity=0.5, name='Volume'), row=2, col=1)
-    
-    # Trading levels
+    # Prepare pattern dict for chart
+    pattern_dict = None
     if pattern.trading_levels:
-        tl = pattern.trading_levels
-        x_range = [df.index.min(), df.index.max()]
-        
-        fig.add_trace(go.Scatter(x=x_range, y=[tl.entry]*2, mode='lines',
-            line=dict(color='#0ea5e9', width=2), name=f'Entry: ${tl.entry:,.2f}'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=x_range, y=[tl.stop_loss]*2, mode='lines',
-            line=dict(color='#ef4444', width=2, dash='dash'), name=f'Stop: ${tl.stop_loss:,.2f}'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=x_range, y=[tl.take_profit_1]*2, mode='lines',
-            line=dict(color='#22c55e', width=2, dash='dot'), name=f'TP1: ${tl.take_profit_1:,.2f}'), row=1, col=1)
+        pattern_dict = {
+            'trading_levels': {
+                'entry': pattern.trading_levels.entry,
+                'stop_loss': pattern.trading_levels.stop_loss,
+                'take_profit_1': pattern.trading_levels.take_profit_1,
+                'take_profit_2': pattern.trading_levels.take_profit_2,
+            }
+        }
     
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor='#0f172a',
-        plot_bgcolor='#0f172a',
-        font=dict(color='#e2e8f0'),
-        xaxis_rangeslider_visible=False,
-        height=500,
-        margin=dict(l=50, r=50, t=30, b=30),
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
-    )
-    fig.update_xaxes(gridcolor='#1e293b')
-    fig.update_yaxes(gridcolor='#1e293b')
-    
-    return fig
+    # Render TradingView chart
+    render_pattern_chart(df, pattern=pattern_dict, height=600, key=container_key)
 
 
 def create_win_rate_ring(win_rate: float, size: int = 120) -> str:
@@ -496,8 +454,14 @@ def render_dashboard():
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    fig = create_mini_chart(df, height=80)
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                    # Reset index for TradingView chart
+                    if isinstance(df.index, pd.DatetimeIndex):
+                        df_chart = df.reset_index().rename(columns={'index': 'time'})
+                    else:
+                        df_chart = df.copy()
+                    
+                    # Render TradingView mini chart
+                    render_mini_chart(df_chart, height=80, key=f"mini_chart_{symbol}")
     
     with col_right:
         st.markdown("### 🎯 Performance")
@@ -620,8 +584,8 @@ def render_scanner():
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    fig = create_pattern_chart(p_data)
-                    st.plotly_chart(fig, use_container_width=True)
+                    # Use TradingView chart wrapper
+                    create_pattern_chart_wrapper(p_data, container_key=f"pattern_chart_{i}")
                 
                 with col2:
                     if pattern.trading_levels:

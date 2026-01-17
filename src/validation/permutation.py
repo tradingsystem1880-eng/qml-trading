@@ -1,305 +1,172 @@
 """
-Permutation Testing for Strategy Validation
-============================================
-Tests whether strategy performance is due to skill or luck
-by comparing actual results against random permutations.
+Permutation Test Validator
+==========================
+VRD 2.0 Module 3A: Statistical Edge Validation
+
+Tests whether observed performance is statistically significant
+by shuffling trade returns and recalculating metrics.
+
+If the real Sharpe/profit is not significantly better than random
+shuffles, the edge may be due to luck.
 """
 
-from dataclasses import dataclass
-from typing import Optional, Tuple
-
 import numpy as np
-from loguru import logger
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from src.validation.base import BaseValidator, ValidationResult, ValidationStatus
+
+
+@dataclass
+class PermutationConfig:
+    """Configuration for permutation test."""
+    n_permutations: int = 1000
+    significance_level: float = 0.05  # p < 0.05 to pass
+    metric: str = 'sharpe_ratio'  # Metric to test
 
 
 @dataclass
 class PermutationResult:
-    """Result of permutation testing."""
-    
-    # Actual strategy performance
-    actual_sharpe: float
-    actual_max_dd: float
-    actual_profit_factor: float
-    actual_total_return: float
-    
-    # Statistical significance
-    sharpe_p_value: float      # P(random > actual)
-    max_dd_p_value: float      # P(random has lower DD)
-    sharpe_percentile: float   # Percentile of actual vs random
-    
-    # Distribution data (for visualization)
-    permutation_sharpes: np.ndarray
-    permutation_dds: np.ndarray
-    
-    # Configuration
+    """Result from permutation test."""
+    p_value: float
+    real_metric: float
+    mean_permuted_metric: float
+    std_permuted_metric: float
     n_permutations: int
-    
-    @property
-    def is_significant_95(self) -> bool:
-        """Is the strategy significant at 95% level?"""
-        return self.sharpe_p_value < 0.05
-    
-    @property
-    def is_significant_99(self) -> bool:
-        """Is the strategy significant at 99% level?"""
-        return self.sharpe_p_value < 0.01
+    n_trades: int
+    is_significant: bool
+    permuted_metrics: List[float] = field(default_factory=list)
 
 
-class PermutationTest:
+# Public API
+__all__ = ['PermutationTest', 'PermutationConfig', 'PermutationResult', 'run_permutation_test']
+
+
+class PermutationTest(BaseValidator):
     """
-    Permutation Testing for Strategy Evaluation.
+    Permutation test for statistical significance of trading edge.
     
-    Tests skill vs luck by randomly shuffling trade sequence 10,000+ times
-    while preserving individual trade outcomes.
+    How it works:
+    1. Calculate the real Sharpe ratio (or other metric) from actual trade sequence
+    2. Shuffle trade returns N times (default 1000)
+    3. Calculate Sharpe for each shuffled sequence
+    4. p-value = proportion of shuffled Sharpes >= real Sharpe
+    5. If p < 0.05, the edge is statistically significant
     
-    Answers: "What's the probability that random ordering of these
-    specific trades would produce results as good or better?"
+    Usage:
+        validator = PermutationTest()
+        result = validator.validate(backtest_result, trades=trades_list)
+        
+        if result.status == ValidationStatus.PASS:
+            print("Edge is statistically significant!")
     """
     
-    def __init__(
+    @property
+    def name(self) -> str:
+        return "permutation_test"
+    
+    def get_default_config(self) -> Dict[str, Any]:
+        return {
+            'n_permutations': 1000,
+            'significance_level': 0.05,
+            'metric': 'sharpe_ratio'
+        }
+    
+    def validate(
         self,
-        n_permutations: int = 10000,
-        random_seed: Optional[int] = None
-    ):
+        backtest_result: Dict[str, Any],
+        trades: Optional[List[Dict[str, Any]]] = None
+    ) -> ValidationResult:
         """
-        Initialize permutation test.
+        Run permutation test on backtest results.
         
         Args:
-            n_permutations: Number of random permutations (min 10,000 recommended)
-            random_seed: Optional seed for reproducibility
-        """
-        if n_permutations < 1000:
-            logger.warning(
-                f"n_permutations={n_permutations} is low. "
-                "Consider using at least 10,000 for reliable p-values."
-            )
+            backtest_result: Results from BacktestEngine
+            trades: List of trade dictionaries with 'pnl_pct' field
         
-        self.n_permutations = n_permutations
-        self.rng = np.random.default_rng(random_seed)
-        
-        logger.info(f"PermutationTest initialized with {n_permutations} permutations")
-    
-    def run(self, trade_returns: np.ndarray) -> PermutationResult:
-        """
-        Run permutation test on trade returns.
-        
-        Args:
-            trade_returns: Array of individual trade returns (percentages or ratios)
-            
         Returns:
-            PermutationResult with p-values and distributions
+            ValidationResult with p-value and interpretation
         """
-        trade_returns = np.asarray(trade_returns).flatten()
-        n_trades = len(trade_returns)
+        # Extract returns from trades
+        if trades is None:
+            trades = backtest_result.get('trades', [])
         
-        if n_trades < 10:
-            raise ValueError(
-                f"Insufficient trades ({n_trades}) for permutation testing. "
-                "Need at least 10 trades."
+        if not trades:
+            return ValidationResult(
+                validator_name=self.name,
+                status=ValidationStatus.ERROR,
+                interpretation="No trades to analyze"
             )
         
-        logger.info(f"Running permutation test on {n_trades} trades")
+        # Get returns array
+        returns = []
+        for trade in trades:
+            if isinstance(trade, dict):
+                pnl = trade.get('pnl_pct')
+            else:
+                pnl = getattr(trade, 'pnl_pct', None)
+            
+            if pnl is not None:
+                returns.append(pnl)
         
-        # Calculate actual strategy metrics
-        actual_sharpe = self._calculate_sharpe(trade_returns)
-        actual_max_dd = self._calculate_max_drawdown(trade_returns)
-        actual_pf = self._calculate_profit_factor(trade_returns)
-        actual_return = float(np.sum(trade_returns))
+        if len(returns) < 10:
+            return ValidationResult(
+                validator_name=self.name,
+                status=ValidationStatus.WARN,
+                interpretation=f"Insufficient trades ({len(returns)}) for reliable permutation test"
+            )
+        
+        returns = np.array(returns)
+        
+        # Calculate real metric
+        real_sharpe = self._calculate_sharpe(returns)
         
         # Run permutations
-        perm_sharpes = np.zeros(self.n_permutations)
-        perm_dds = np.zeros(self.n_permutations)
+        n_perms = self.config.get('n_permutations', 1000)
+        perm_sharpes = []
         
-        for i in range(self.n_permutations):
-            shuffled = self._shuffle_trades(trade_returns)
-            perm_sharpes[i] = self._calculate_sharpe(shuffled)
-            perm_dds[i] = self._calculate_max_drawdown(shuffled)
+        for _ in range(n_perms):
+            shuffled = np.random.permutation(returns)
+            perm_sharpes.append(self._calculate_sharpe(shuffled))
         
-        # Calculate p-values
-        # Sharpe: What fraction of random orderings have higher Sharpe?
-        sharpe_p_value = np.mean(perm_sharpes >= actual_sharpe)
+        perm_sharpes = np.array(perm_sharpes)
         
-        # Max DD: What fraction of random orderings have lower (better) drawdown?
-        max_dd_p_value = np.mean(perm_dds <= actual_max_dd)
+        # Calculate p-value (proportion of permuted >= real)
+        p_value = np.mean(perm_sharpes >= real_sharpe)
         
-        # Percentile: Where does actual fall in the distribution?
-        sharpe_percentile = 100 * np.mean(perm_sharpes < actual_sharpe)
+        # Determine status
+        alpha = self.config.get('significance_level', 0.05)
         
-        result = PermutationResult(
-            actual_sharpe=actual_sharpe,
-            actual_max_dd=actual_max_dd,
-            actual_profit_factor=actual_pf,
-            actual_total_return=actual_return,
-            sharpe_p_value=sharpe_p_value,
-            max_dd_p_value=max_dd_p_value,
-            sharpe_percentile=sharpe_percentile,
-            permutation_sharpes=perm_sharpes,
-            permutation_dds=perm_dds,
-            n_permutations=self.n_permutations,
-        )
-        
-        logger.info(
-            f"Permutation test complete: "
-            f"Sharpe p-value={sharpe_p_value:.4f}, "
-            f"percentile={sharpe_percentile:.1f}%"
-        )
-        
-        return result
-    
-    def _shuffle_trades(self, returns: np.ndarray) -> np.ndarray:
-        """Randomly shuffle trade sequence."""
-        shuffled = returns.copy()
-        self.rng.shuffle(shuffled)
-        return shuffled
-    
-    def _calculate_sharpe(
-        self,
-        returns: np.ndarray,
-        risk_free_rate: float = 0.0,
-        annualization_factor: float = 1.0
-    ) -> float:
-        """
-        Calculate Sharpe ratio of trade returns.
-        
-        Args:
-            returns: Trade returns
-            risk_free_rate: Risk-free rate (default 0)
-            annualization_factor: Annualization factor (default 1 for trade-level)
-            
-        Returns:
-            Sharpe ratio
-        """
-        if len(returns) == 0:
-            return 0.0
-        
-        excess_returns = returns - risk_free_rate
-        mean_return = np.mean(excess_returns)
-        std_return = np.std(excess_returns, ddof=1)
-        
-        if std_return == 0 or np.isnan(std_return):
-            return 0.0
-        
-        return float(mean_return / std_return * np.sqrt(annualization_factor))
-    
-    def _calculate_max_drawdown(self, returns: np.ndarray) -> float:
-        """
-        Calculate maximum drawdown from trade sequence.
-        
-        Args:
-            returns: Trade returns (percentages)
-            
-        Returns:
-            Maximum drawdown as positive percentage
-        """
-        if len(returns) == 0:
-            return 0.0
-        
-        # Build equity curve (cumulative returns)
-        equity = np.cumprod(1 + returns / 100)  # Assuming percentage returns
-        
-        # Running maximum
-        running_max = np.maximum.accumulate(equity)
-        
-        # Drawdown at each point
-        drawdowns = (running_max - equity) / running_max * 100
-        
-        return float(np.max(drawdowns))
-    
-    def _calculate_profit_factor(self, returns: np.ndarray) -> float:
-        """
-        Calculate profit factor (gross profit / gross loss).
-        
-        Args:
-            returns: Trade returns
-            
-        Returns:
-            Profit factor (> 1 is profitable)
-        """
-        gross_profit = np.sum(returns[returns > 0])
-        gross_loss = np.abs(np.sum(returns[returns < 0]))
-        
-        if gross_loss == 0:
-            return float('inf') if gross_profit > 0 else 0.0
-        
-        return float(gross_profit / gross_loss)
-    
-    def generate_report(self, result: PermutationResult) -> str:
-        """
-        Generate text report of permutation test results.
-        
-        Args:
-            result: PermutationResult to report
-            
-        Returns:
-            Formatted report string
-        """
-        # Determine significance verdict
-        if result.sharpe_p_value < 0.01:
-            verdict = "HIGHLY SIGNIFICANT (p < 0.01) - Strong evidence of skill"
-        elif result.sharpe_p_value < 0.05:
-            verdict = "SIGNIFICANT (p < 0.05) - Evidence of skill"
-        elif result.sharpe_p_value < 0.10:
-            verdict = "MARGINALLY SIGNIFICANT (p < 0.10) - Weak evidence"
+        if p_value < alpha:
+            status = ValidationStatus.PASS
+            interpretation = f"Edge is statistically significant (p={p_value:.4f} < {alpha})"
+        elif p_value < alpha * 2:
+            status = ValidationStatus.WARN
+            interpretation = f"Edge is marginally significant (p={p_value:.4f})"
         else:
-            verdict = "NOT SIGNIFICANT (p >= 0.10) - Cannot distinguish from luck"
+            status = ValidationStatus.FAIL
+            interpretation = f"Edge is NOT statistically significant (p={p_value:.4f} >= {alpha})"
         
-        lines = [
-            "=" * 60,
-            "PERMUTATION TEST RESULTS",
-            "=" * 60,
-            "",
-            f"Permutations: {result.n_permutations:,}",
-            "",
-            "Actual Strategy Performance:",
-            f"  - Sharpe Ratio: {result.actual_sharpe:.4f}",
-            f"  - Max Drawdown: {result.actual_max_dd:.2f}%",
-            f"  - Profit Factor: {result.actual_profit_factor:.2f}",
-            f"  - Total Return: {result.actual_total_return:.2f}%",
-            "",
-            "Statistical Significance:",
-            f"  - Sharpe p-value: {result.sharpe_p_value:.4f}",
-            f"  - Max DD p-value: {result.max_dd_p_value:.4f}",
-            f"  - Percentile: {result.sharpe_percentile:.1f}th",
-            "",
-            "Distribution Summary:",
-            f"  - Random Sharpe Mean: {np.mean(result.permutation_sharpes):.4f}",
-            f"  - Random Sharpe Std: {np.std(result.permutation_sharpes):.4f}",
-            f"  - Random Max DD Mean: {np.mean(result.permutation_dds):.2f}%",
-            "",
-            "=" * 60,
-            f"VERDICT: {verdict}",
-            "=" * 60,
-            "",
-            "Interpretation:",
-            f"  This strategy is in the {result.sharpe_percentile:.1f}th percentile",
-            f"  of {result.n_permutations:,} random permutations.",
-            "",
-            "  A p-value of {:.4f} means there is a {:.2f}% chance".format(
-                result.sharpe_p_value, result.sharpe_p_value * 100
-            ),
-            "  that random trade sequencing would produce an equal",
-            "  or better Sharpe ratio.",
-            "=" * 60,
-        ]
-        
-        return "\n".join(lines)
-
-
-def run_permutation_test(
-    trade_returns: np.ndarray,
-    n_permutations: int = 10000,
-    seed: Optional[int] = None
-) -> PermutationResult:
-    """
-    Convenience function to run permutation test.
+        return ValidationResult(
+            validator_name=self.name,
+            status=status,
+            metrics={
+                'real_sharpe': round(real_sharpe, 4),
+                'mean_permuted_sharpe': round(np.mean(perm_sharpes), 4),
+                'std_permuted_sharpe': round(np.std(perm_sharpes), 4),
+                'n_permutations': n_perms,
+                'n_trades': len(returns)
+            },
+            p_value=round(p_value, 4),
+            confidence=round(1 - p_value, 4),
+            interpretation=interpretation,
+            details={
+                'percentile_rank': round(np.mean(real_sharpe > perm_sharpes) * 100, 1)
+            }
+        )
     
-    Args:
-        trade_returns: Array of trade returns
-        n_permutations: Number of permutations
-        seed: Random seed
-        
-    Returns:
-        PermutationResult
-    """
-    test = PermutationTest(n_permutations=n_permutations, random_seed=seed)
-    return test.run(trade_returns)
+    def _calculate_sharpe(self, returns: np.ndarray) -> float:
+        """Calculate Sharpe ratio from returns array."""
+        if len(returns) == 0 or np.std(returns) == 0:
+            return 0.0
+        return np.mean(returns) / np.std(returns)

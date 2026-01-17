@@ -25,7 +25,7 @@ def generate_uptrend_data(n_bars: int = 200) -> pd.DataFrame:
     """Generate synthetic uptrend OHLCV data."""
     np.random.seed(42)
     
-    dates = pd.date_range(end=datetime.now(), periods=n_bars, freq='4H')
+    dates = pd.date_range(end=datetime.now(), periods=n_bars, freq='4h')
     
     # Uptrend with noise
     base_price = 100
@@ -52,7 +52,7 @@ def generate_downtrend_data(n_bars: int = 200) -> pd.DataFrame:
     """Generate synthetic downtrend OHLCV data."""
     np.random.seed(43)
     
-    dates = pd.date_range(end=datetime.now(), periods=n_bars, freq='4H')
+    dates = pd.date_range(end=datetime.now(), periods=n_bars, freq='4h')
     
     base_price = 130
     trend = np.linspace(0, -30, n_bars)
@@ -79,7 +79,7 @@ def generate_qml_pattern_data(pattern_type: str = "bullish") -> pd.DataFrame:
     np.random.seed(44)
     n_bars = 150
     
-    dates = pd.date_range(end=datetime.now(), periods=n_bars, freq='4H')
+    dates = pd.date_range(end=datetime.now(), periods=n_bars, freq='4h')
     
     if pattern_type == "bullish":
         # Downtrend -> CHoCH -> Head (lower low) -> BoS (higher high)

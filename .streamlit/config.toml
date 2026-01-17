@@ -1,0 +1,12 @@
+[theme]
+# Bloomberg Terminal Dark Theme
+base = "dark"
+primaryColor = "#ff6600"
+backgroundColor = "#000000"
+secondaryBackgroundColor = "#0a0a0a"
+textColor = "#ffffff"
+font = "monospace"
+
+[server]
+headless = true
+port = 8501

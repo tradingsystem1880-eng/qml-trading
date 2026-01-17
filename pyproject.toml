@@ -26,6 +26,7 @@ vectorbt = "^0.26.0"
 plotly = "^5.18.0"
 streamlit = "^1.31.0"
 matplotlib = "^3.8.0"
+lightweight-charts = "^2.0"
 # Alerts
 python-telegram-bot = "^20.7"
 # Utilities
@@ -65,4 +66,38 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
+# CRITICAL: Exclude virtual environments to prevent 3GB+ RAM usage
+exclude = [
+    "^.venv/",
+    "^venv/",
+    "^archive/",
+    "^.archive/",
+    "^results/",
+    "^data/",
+]
 
+# Pyrefly type checker configuration
+[tool.pyrefly]
+# Exclude paths from analysis to prevent memory bloat
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    "archive",
+    ".archive",
+    "results",
+    "data",
+    "logs",
+    ".git",
+    "notebooks",
+    "models",
+]
+
+# Include only your actual source code
+include = [
+    "src",
+    "qml",
+    "cli",
+    "tests",
+]

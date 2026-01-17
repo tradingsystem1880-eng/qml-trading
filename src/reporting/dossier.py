@@ -246,13 +246,82 @@ class DossierGenerator:
             return '#e74c3c' if value > 20 else '#f39c12' if value > 10 else '#27ae60'
         return '#333'
     
+    def _create_validation_section(self, validation_suite: Optional[Any]) -> str:
+        """
+        Create HTML section for validation results.
+        
+        Args:
+            validation_suite: ValidationSuite object with results
+        
+        Returns:
+            HTML string for validation section
+        """
+        if validation_suite is None:
+            return ""
+        
+        # Import here to avoid circular imports
+        try:
+            from src.validation.base import ValidationStatus
+        except ImportError:
+            return ""
+        
+        status_icons = {
+            'pass': '✅',
+            'warn': '⚠️',
+            'fail': '❌',
+            'error': '💥'
+        }
+        
+        # Overall status
+        overall_status = validation_suite.overall_status.value if hasattr(validation_suite.overall_status, 'value') else str(validation_suite.overall_status)
+        overall_icon = status_icons.get(overall_status, '❓')
+        
+        cards_html = ""
+        for result in validation_suite.results:
+            status = result.status.value if hasattr(result.status, 'value') else str(result.status)
+            icon = status_icons.get(status, '❓')
+            
+            # Format metrics
+            metrics_html = ""
+            for key, val in result.metrics.items():
+                if isinstance(val, float):
+                    metrics_html += f"<span><strong>{key}:</strong> {val:.4f}</span>"
+                elif isinstance(val, list):
+                    metrics_html += f"<span><strong>{key}:</strong> {val}</span>"
+                else:
+                    metrics_html += f"<span><strong>{key}:</strong> {val}</span>"
+            
+            p_value_str = f"<span><strong>p-value:</strong> {result.p_value:.4f}</span>" if result.p_value is not None else ""
+            
+            cards_html += f'''
+            <div class="validation-card {status}">
+                <h3>{icon} {result.validator_name.upper().replace('_', ' ')}</h3>
+                <div class="interpretation">{result.interpretation}</div>
+                <div class="metrics">
+                    {p_value_str}
+                    {metrics_html}
+                </div>
+            </div>
+            '''
+        
+        return f'''
+        <!-- Validation Results -->
+        <div class="card">
+            <h2>🔬 Statistical Validation ({overall_icon} {overall_status.upper()})</h2>
+            <div class="validation-grid">
+                {cards_html}
+            </div>
+        </div>
+        '''
+    
     def generate_html(
         self,
         run_id: str,
         config: Any,
         results: Dict[str, Any],
         trades_df: Optional[pd.DataFrame] = None,
-        strategy_name: Optional[str] = None
+        strategy_name: Optional[str] = None,
+        validation_suite: Optional[Any] = None
     ) -> str:
         """
         Generate standalone HTML dossier.
@@ -263,6 +332,7 @@ class DossierGenerator:
             results: Results dictionary from BacktestEngine
             trades_df: DataFrame of trades
             strategy_name: Strategy name override
+            validation_suite: Optional ValidationSuite with test results
         
         Returns:
             Path to generated HTML file
@@ -296,6 +366,9 @@ class DossierGenerator:
         
         # Generate config table
         config_table = self._format_config_table(config_dict)
+        
+        # Generate validation section if available
+        validation_html = self._create_validation_section(validation_suite)
         
         # Build HTML
         html = f"""<!DOCTYPE html>
@@ -493,6 +566,59 @@ class DossierGenerator:
         .chart-container {{
             margin: 0 -24px;
         }}
+        
+        /* Validation section */
+        .validation-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }}
+        
+        .validation-card {{
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #ddd;
+        }}
+        
+        .validation-card.pass {{
+            background: rgba(39, 174, 96, 0.05);
+            border-left-color: #27ae60;
+        }}
+        
+        .validation-card.warn {{
+            background: rgba(243, 156, 18, 0.05);
+            border-left-color: #f39c12;
+        }}
+        
+        .validation-card.fail {{
+            background: rgba(231, 76, 60, 0.05);
+            border-left-color: #e74c3c;
+        }}
+        
+        .validation-card h3 {{
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .validation-card .interpretation {{
+            font-size: 13px;
+            color: #555;
+            margin-bottom: 8px;
+        }}
+        
+        .validation-card .metrics {{
+            font-size: 12px;
+            color: #888;
+        }}
+        
+        .validation-card .metrics span {{
+            display: inline-block;
+            margin-right: 12px;
+        }}
     </style>
 </head>
 <body>
@@ -590,6 +716,8 @@ class DossierGenerator:
             <h2>📋 Trade Log</h2>
             {trades_table}
         </div>
+        
+        {validation_html}
         
         <!-- Footer -->
         <div class="footer">

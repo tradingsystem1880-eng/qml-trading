@@ -54,7 +54,7 @@ class TestFoldGeneration:
     def sample_df(self):
         """Create sample DataFrame for testing."""
         n_bars = 1000
-        dates = pd.date_range(start="2024-01-01", periods=n_bars, freq="4H")
+        dates = pd.date_range(start="2024-01-01", periods=n_bars, freq="4h")
         return pd.DataFrame({
             "time": dates,
             "close": np.random.randn(n_bars).cumsum() + 100,
@@ -112,7 +112,7 @@ class TestFoldGeneration:
     def test_insufficient_data_raises(self):
         """Test error when data is insufficient for requested folds."""
         small_df = pd.DataFrame({
-            "time": pd.date_range(start="2024-01-01", periods=50, freq="4H"),
+            "time": pd.date_range(start="2024-01-01", periods=50, freq="4h"),
             "close": np.random.randn(50),
         })
         
@@ -130,7 +130,7 @@ class TestWalkForwardExecution:
     def sample_df(self):
         """Create sample DataFrame."""
         n_bars = 500
-        dates = pd.date_range(start="2024-01-01", periods=n_bars, freq="4H")
+        dates = pd.date_range(start="2024-01-01", periods=n_bars, freq="4h")
         np.random.seed(42)
         return pd.DataFrame({
             "time": dates,
