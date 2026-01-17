@@ -78,13 +78,12 @@ models/*.onnx
 *.h5
 *.pth
 
-# Results and outputs (keep structure, selective tracking)
-results/backtests/*.csv
-results/charts/*.png
-results/charts/*.html
-results/reports/*.html
-results/experiments/*.csv
-results/validation/*.html
+# Results and outputs (keep structure, ignore generated files)
+results/**/*.html
+results/**/*.csv
+results/**/*.png
+results/**/*.json
+results/experiments.db
 
 # Paper trading logs
 paper_trading_logs/daily/*.json
