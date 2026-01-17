@@ -119,3 +119,6 @@ Thumbs.db
 *.o
 *.so
 
+# Embedded repositories (handle separately)
+qml-trading/
+
