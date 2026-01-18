@@ -173,13 +173,13 @@ def load_vrd_report():
     try:
         reports_dir = PROJECT_ROOT / "reports"
         dossiers = list(reports_dir.glob("**/dossier*.html")) if reports_dir.exists() else []
-        
+
         if dossiers:
             latest = max(dossiers, key=lambda x: x.stat().st_mtime)
             return {"source": "file", "path": str(latest)}
     except Exception as e:
         logger.warning(f"Could not load dossier: {e}")
-    
+
     # Return sample data for demo
     return {
         "source": "sample",
@@ -200,230 +200,386 @@ def load_vrd_report():
         }
     }
 
+
+# ============================================================================
+# UI COMPONENT BUILDERS
+# ============================================================================
+
+def terminal_header(title: str, show_live: bool = True) -> str:
+    """Create the main terminal header bar."""
+    live_html = """
+        <div style="display: flex; align-items: center; gap: 8px;
+            background: #111820; border: 1px solid #1e2d3d; border-radius: 4px; padding: 6px 12px;">
+            <div style="width: 6px; height: 6px; background: #22c55e; border-radius: 50%;
+                box-shadow: 0 0 8px #22c55e; animation: pulse 2s infinite;"></div>
+            <span style="color: #8b9cb3; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+                text-transform: uppercase; letter-spacing: 0.1em;">LIVE</span>
+        </div>
+        <style>@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }</style>
+    """ if show_live else ""
+
+    return f"""
+    <div style="display: flex; justify-content: space-between; align-items: center;
+        padding: 16px 0; margin-bottom: 24px; border-bottom: 1px solid #1e2d3d;">
+        <span style="color: #22c55e; font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
+            font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;">{title}</span>
+        {live_html}
+    </div>
+    """
+
+
+def panel_box(content: str, title: str = "", height: str = "auto") -> str:
+    """Create a bordered panel container."""
+    title_html = f"""
+        <div style="padding: 10px 14px; border-bottom: 1px solid #1e2d3d;">
+            <span style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+                font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em;">{title}</span>
+        </div>
+    """ if title else ""
+
+    return f"""
+    <div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px;
+        overflow: hidden; height: {height};">
+        {title_html}
+        <div style="padding: 14px;">{content}</div>
+    </div>
+    """
+
+
+def stat_value(label: str, value: str, color: str = "#e2e8f0", size: str = "large") -> str:
+    """Create a stat display with label and value."""
+    font_size = "1.75rem" if size == "large" else "1.25rem" if size == "medium" else "1rem"
+    return f"""
+    <div style="margin-bottom: 16px;">
+        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;">{label}</div>
+        <div style="color: {color}; font-family: 'JetBrains Mono', monospace; font-size: {font_size};
+            font-weight: 500;">{value}</div>
+    </div>
+    """
+
+
+def metric_row(items: list) -> str:
+    """Create a horizontal row of metrics."""
+    items_html = ""
+    for item in items:
+        items_html += f"""
+        <div style="text-align: center; flex: 1; padding: 0 12px;
+            border-right: 1px solid #1e2d3d; last-child: border-right: none;">
+            <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
+                text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;">{item.get('label', '')}</div>
+            <div style="color: {item.get('color', '#e2e8f0')}; font-family: 'JetBrains Mono', monospace;
+                font-size: 1.1rem; font-weight: 500;">{item.get('value', '')}</div>
+        </div>
+        """
+    return f"""
+    <div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px;
+        padding: 14px 8px; display: flex;">
+        {items_html}
+    </div>
+    """
+
+
+def win_rate_display(win_rate: float, size: int = 100) -> str:
+    """Create a circular win rate indicator."""
+    pct = win_rate * 100
+    color = "#22c55e" if win_rate >= 0.5 else "#ef4444"
+    circumference = 2 * 3.14159 * 40
+    dash = (pct / 100) * circumference
+
+    return f"""
+    <div style="position: relative; width: {size}px; height: {size}px; margin: 0 auto;">
+        <svg viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+            <circle cx="50" cy="50" r="40" fill="none" stroke="#1e2d3d" stroke-width="6"/>
+            <circle cx="50" cy="50" r="40" fill="none" stroke="{color}" stroke-width="6"
+                stroke-dasharray="{dash} {circumference}" stroke-linecap="round"/>
+        </svg>
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <div style="color: {color}; font-family: 'JetBrains Mono', monospace; font-size: 1.25rem;
+                font-weight: 600;">{pct:.0f}%</div>
+            <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.55rem;
+                text-transform: uppercase; letter-spacing: 0.1em;">Win</div>
+        </div>
+    </div>
+    """
+
+
+def signal_card(symbol: str, pattern_type: str, validity: float, side: str = "LONG") -> str:
+    """Create a signal/pattern card."""
+    side_color = "#22c55e" if side.upper() == "LONG" else "#ef4444"
+    validity_pct = validity * 100
+
+    return f"""
+    <div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px;
+        padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <div style="color: #e2e8f0; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;
+                font-weight: 500;">{symbol}</div>
+            <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+                margin-top: 2px;">{pattern_type}</div>
+        </div>
+        <div style="text-align: right;">
+            <div style="color: {side_color}; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+                font-weight: 500;">{side.upper()}</div>
+            <div style="color: #8b9cb3; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+                margin-top: 2px;">{validity_pct:.0f}%</div>
+        </div>
+    </div>
+    """
+
+
 # ============================================================================
 # PAGE: DASHBOARD
 # ============================================================================
 def render_dashboard():
-    """Main dashboard overview with native Streamlit components."""
-    st.title("📊 QML Trading Dashboard")
-    st.caption("Pattern Detection & Validation System v3.0")
-    
-    # Top metrics row
-    total = len(st.session_state.scan_results)
-    bullish = sum(1 for r in st.session_state.scan_results if 'bullish' in str(r.get('type', '')).lower())
-    bearish = sum(1 for r in st.session_state.scan_results if 'bearish' in str(r.get('type', '')).lower())
-    avg_val = np.mean([r['validity'] for r in st.session_state.scan_results]) if st.session_state.scan_results else 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Patterns", total)
-    col2.metric("🟢 Bullish", bullish)
-    col3.metric("🔴 Bearish", bearish)
-    col4.metric("Avg Validity", f"{avg_val:.0%}")
-    
-    st.divider()
-    
-    # Two-column layout
-    left_col, right_col = st.columns([2, 1])
-    
-    with left_col:
-        st.subheader("⚡ Quick Scan")
-        
-        with st.form("quick_scan_form", clear_on_submit=False):
-            form_col1, form_col2 = st.columns([3, 1])
-            
-            with form_col1:
-                symbols = st.multiselect(
-                    "Symbols",
-                    ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT", 
-                     "ADA/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT", "MATIC/USDT"],
-                    default=["BTC/USDT", "ETH/USDT", "SOL/USDT"]
-                )
-            
-            with form_col2:
-                timeframe = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1)
-            
-            if st.form_submit_button("🔍 Run Quick Scan", use_container_width=True):
-                if symbols:
-                    results = run_scanner(symbols, timeframe, days=180, min_validity=0.5)
-                    st.session_state.scan_results = results
-                    if results:
-                        st.success(f"✅ Found {len(results)} patterns!")
-                    else:
-                        st.info("No patterns found")
-                    st.rerun()
-    
-    with right_col:
-        st.subheader("📈 System Status")
-        
-        engine = load_engine()
-        if engine:
-            st.success("🟢 Engine Online")
-        else:
-            st.error("🔴 Engine Offline")
-        
-        st.caption(f"Last update: {datetime.now().strftime('%H:%M:%S')}")
-        
-        # VRD Status
-        vrd = load_vrd_report()
-        verdict = vrd.get("verdict", "N/A")
-        if verdict == "DEPLOY":
-            st.success(f"✅ VRD: {verdict}")
-        else:
-            st.warning(f"⚠️ VRD: {verdict}")
-    
-    st.divider()
-    
-    # Recent patterns
-    st.subheader("📈 Recent Patterns")
-    
-    if st.session_state.scan_results:
-        for i, result in enumerate(st.session_state.scan_results[:5]):
-            pattern_type = str(result.get('type', 'unknown'))
-            is_bullish = 'bullish' in pattern_type.lower()
-            icon = "🟢" if is_bullish else "🔴"
-            
-            with st.expander(
-                f"{icon} **{result['symbol']}** — {pattern_type.upper()} | Validity: {result['validity']:.0%}",
-                expanded=(i == 0)
-            ):
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Entry", f"${result.get('entry', 0):,.2f}")
-                c2.metric("Stop Loss", f"${result.get('sl', 0):,.2f}")
-                c3.metric("Take Profit", f"${result.get('tp', 0):,.2f}")
-                c4.metric("Risk:Reward", f"{result.get('rr', 0):.1f}")
-    else:
-        st.info("👆 Use Quick Scan to find patterns, or go to Scanner for advanced options")
+    """Main dashboard - Clean, functional design."""
 
+    # Get data
+    vrd = load_vrd_report()
+    metrics = vrd.get("metrics", {})
+    win_rate = metrics.get("win_rate", 0.62)
+    profit_factor = metrics.get("profit_factor", 1.94)
+    max_dd = metrics.get("max_drawdown", -0.18)
+    total_trades = metrics.get("total_trades", 156)
+    sharpe = metrics.get("sharpe_ratio", 1.87)
+
+    # Title
+    st.title("Dashboard")
+
+    # Top metrics row
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Win Rate", f"{win_rate*100:.0f}%")
+    m2.metric("Profit Factor", f"{profit_factor:.2f}")
+    m3.metric("Sharpe Ratio", f"{sharpe:.2f}")
+    m4.metric("Total Trades", total_trades)
+    m5.metric("Max Drawdown", f"{max_dd*100:.1f}%")
+
+    st.divider()
+
+    # Main content
+    chart_col, action_col = st.columns([2, 1])
+
+    with chart_col:
+        st.subheader("BTC/USDT - 4H")
+
+        # Load and display chart
+        try:
+            df = load_ohlcv_cached("BTC/USDT", "4h", 60)
+            if df is not None and len(df) > 0:
+                df.columns = df.columns.str.lower()
+                df = df.tail(100)
+
+                fig = go.Figure()
+                fig.add_trace(go.Candlestick(
+                    x=df['time'],
+                    open=df['open'],
+                    high=df['high'],
+                    low=df['low'],
+                    close=df['close'],
+                    increasing=dict(line=dict(color='#3fb950'), fillcolor='#238636'),
+                    decreasing=dict(line=dict(color='#f85149'), fillcolor='#da3633'),
+                    name="Price"
+                ))
+
+                fig.update_layout(
+                    height=450,
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    paper_bgcolor='#0e1117',
+                    plot_bgcolor='#0e1117',
+                    xaxis=dict(
+                        showgrid=False,
+                        rangeslider=dict(visible=False),
+                        color='#8b949e'
+                    ),
+                    yaxis=dict(
+                        showgrid=True,
+                        gridcolor='#21262d',
+                        side='right',
+                        color='#8b949e'
+                    ),
+                    showlegend=False,
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No chart data available. Run data fetch first.")
+        except Exception as e:
+            st.warning(f"Chart unavailable: {e}")
+
+    with action_col:
+        st.subheader("Quick Scan")
+
+        with st.form("quick_scan_form"):
+            symbols = st.multiselect(
+                "Symbols",
+                ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"],
+                default=["BTC/USDT", "ETH/USDT"]
+            )
+            timeframe = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1)
+            min_validity = st.slider("Min Validity", 0.5, 1.0, 0.7, 0.05)
+
+            submitted = st.form_submit_button("Scan for Patterns", use_container_width=True, type="primary")
+
+            if submitted and symbols:
+                results = run_scanner(symbols, timeframe, days=180, min_validity=min_validity)
+                st.session_state.scan_results = results
+                st.rerun()
+
+        st.divider()
+        st.subheader("Recent Signals")
+
+        if st.session_state.scan_results:
+            for i, r in enumerate(st.session_state.scan_results[:5]):
+                pattern_type = str(r.get('type', 'QML'))
+                is_bullish = 'bullish' in pattern_type.lower()
+                side = "LONG" if is_bullish else "SHORT"
+                validity_val = r.get('validity', 0) * 100
+
+                col1, col2, col3 = st.columns([2, 1, 1])
+                col1.write(f"**{r['symbol']}** - {pattern_type}")
+                col2.write(f"{'🟢' if is_bullish else '🔴'} {side}")
+                col3.write(f"{validity_val:.0f}%")
+        else:
+            st.info("No signals. Run a scan to detect patterns.")
 
 
 # ============================================================================
 # PAGE: SCANNER
 # ============================================================================
 def render_scanner():
-    """Advanced pattern scanner."""
-    st.title("🔍 Pattern Scanner")
-    st.caption("Scan multiple symbols for QML patterns")
-    
-    col1, col2 = st.columns([2, 1])
-    
+    """Advanced pattern scanner - terminal design."""
+
+    # Terminal-style header
+    st.markdown(terminal_header("PATTERN SCANNER", show_live=False), unsafe_allow_html=True)
+
+    # Main layout
+    col1, col2 = st.columns([3, 1], gap="medium")
+
     with col1:
-        st.subheader("📝 Configuration")
-        
+        # Configuration panel
+        st.caption("CONFIGURATION")
+
         symbols = st.multiselect(
-            "Select Symbols",
+            "Symbols",
             ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT", "ADA/USDT",
-             "AVAX/USDT", "DOT/USDT", "LINK/USDT", "MATIC/USDT", "ATOM/USDT", "LTC/USDT",
-             "UNI/USDT", "AAVE/USDT", "FIL/USDT", "APT/USDT"],
-            default=["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+             "AVAX/USDT", "DOT/USDT", "LINK/USDT", "MATIC/USDT", "ATOM/USDT", "LTC/USDT"],
+            default=["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+            label_visibility="collapsed"
         )
-        
+
         c1, c2, c3 = st.columns(3)
         with c1:
-            timeframe = st.selectbox("Timeframe", ["15m", "1h", "4h", "1d"], index=2)
+            timeframe = st.selectbox("Timeframe", ["15m", "1h", "4h", "1d"], index=2, label_visibility="collapsed")
         with c2:
-            days = st.slider("History (days)", 30, 365, 180)
+            days = st.slider("Days", 30, 365, 180, label_visibility="collapsed")
         with c3:
-            min_validity = st.slider("Min Validity", 0.3, 1.0, 0.6, 0.05)
-    
+            min_validity = st.slider("Min Validity", 0.3, 1.0, 0.6, 0.05, label_visibility="collapsed")
+
     with col2:
-        st.subheader("🎯 Actions")
-        
-        if st.button("🚀 Start Scan", use_container_width=True, type="primary"):
+        # Actions panel
+        st.caption("ACTIONS")
+
+        if st.button("SCAN", use_container_width=True, type="primary"):
             if symbols:
                 results = run_scanner(symbols, timeframe, days, min_validity)
                 st.session_state.scan_results = results
-                st.success(f"✅ Found {len(results)} patterns!")
                 st.rerun()
             else:
                 st.warning("Select at least one symbol")
-        
-        st.write("")
-        
-        if st.button("🗑️ Clear Results", use_container_width=True):
+
+        st.markdown("<div style='height: 8px'></div>", unsafe_allow_html=True)
+
+        if st.button("Clear", use_container_width=True, type="secondary"):
             st.session_state.scan_results = []
             st.rerun()
-        
-        st.write("")
-        
+
         if st.session_state.scan_results:
-            # Export button
+            st.markdown("<div style='height: 8px'></div>", unsafe_allow_html=True)
             df_export = pd.DataFrame([
-                {
-                    "Symbol": r['symbol'],
-                    "Type": r['type'],
-                    "Validity": r['validity'],
-                    "Entry": r['entry'],
-                    "SL": r['sl'],
-                    "TP": r['tp'],
-                    "RR": r['rr']
-                }
+                {"Symbol": r['symbol'], "Type": r['type'], "Validity": r['validity'],
+                 "Entry": r['entry'], "SL": r['sl'], "TP": r['tp'], "RR": r['rr']}
                 for r in st.session_state.scan_results
             ])
             csv = df_export.to_csv(index=False)
-            st.download_button(
-                "📥 Export CSV",
-                csv,
-                "scan_results.csv",
-                "text/csv",
-                use_container_width=True
-            )
-    
-    st.divider()
-    
-    # Results
+            st.download_button("Export CSV", csv, "scan_results.csv", "text/csv", use_container_width=True)
+
+    st.markdown("<div style='height: 24px'></div>", unsafe_allow_html=True)
+
+    # Results section
     if st.session_state.scan_results:
-        st.subheader(f"📋 Results ({len(st.session_state.scan_results)} patterns)")
-        
-        df = pd.DataFrame([
-            {
-                "Symbol": r['symbol'],
-                "Type": r['type'].upper(),
-                "Validity": f"{r['validity']:.0%}",
-                "Entry": f"${r['entry']:,.2f}",
-                "Stop Loss": f"${r['sl']:,.2f}",
-                "Take Profit": f"${r['tp']:,.2f}",
-                "R:R": f"{r['rr']:.1f}"
-            }
-            for r in st.session_state.scan_results
-        ])
-        
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.caption(f"RESULTS - {len(st.session_state.scan_results)} PATTERNS")
+
+        # Results cards
+        for r in st.session_state.scan_results:
+            is_bullish = 'bullish' in str(r.get('type', '')).lower()
+            side = "LONG" if is_bullish else "SHORT"
+            side_color = "#22c55e" if is_bullish else "#ef4444"
+            validity_pct = r['validity'] * 100
+
+            # Build HTML using string concatenation (not multi-line f-strings which break Streamlit)
+            html = '<div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">'
+            html += '<div style="display: flex; align-items: center; gap: 16px;">'
+            html += f'<div style="color: {side_color}; font-family: JetBrains Mono, monospace; font-size: 0.7rem; font-weight: 600; padding: 4px 8px; background: {side_color}15; border-radius: 2px;">{side}</div>'
+            html += '<div>'
+            html += f'<div style="color: #e2e8f0; font-family: JetBrains Mono, monospace; font-size: 0.9rem; font-weight: 500;">{r["symbol"]}</div>'
+            html += f'<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.7rem;">{str(r["type"]).title()}</div>'
+            html += '</div></div>'
+            html += '<div style="display: flex; align-items: center; gap: 24px;">'
+            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">ENTRY</div><div style="color: #e2e8f0; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">${r["entry"]:,.2f}</div></div>'
+            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">SL</div><div style="color: #ef4444; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">${r["sl"]:,.2f}</div></div>'
+            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">TP</div><div style="color: #22c55e; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">${r["tp"]:,.2f}</div></div>'
+            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">R:R</div><div style="color: #8b9cb3; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">{r["rr"]:.1f}</div></div>'
+            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">VALID</div><div style="color: #22c55e; font-family: JetBrains Mono, monospace; font-size: 0.85rem; font-weight: 500;">{validity_pct:.0f}%</div></div>'
+            html += '</div></div>'
+            st.markdown(html, unsafe_allow_html=True)
     else:
-        st.info("Configure settings above and click 'Start Scan'")
+        empty_html = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
+        empty_html += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Select symbols and click SCAN to find patterns</div>'
+        empty_html += '</div>'
+        st.markdown(empty_html, unsafe_allow_html=True)
 
 
 # ============================================================================
 # PAGE: PATTERN ANALYZER
 # ============================================================================
 def render_analyzer():
-    """Pattern analyzer with TradingView-style charts."""
+    """Pattern analyzer with TradingView-style charts - premium design."""
     from qml.core.data import DataLoader
     from src.dashboard.components.pattern_viz import add_pattern_to_figure
-    
-    st.title("📊 Pattern Analyzer")
-    st.caption("Detailed analysis with TradingView-style charts")
-    
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
+
+    # Page header
+    st.markdown("""
+        <div style="margin-bottom: 32px;">
+            <h1 style="color: #f8fafc; font-size: 2rem; font-weight: 700; margin: 0 0 8px 0;">
+                Pattern Analyzer
+            </h1>
+            <p style="color: #64748b; font-size: 0.875rem; margin: 0;">
+                Detailed analysis with interactive charts
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+
     with col1:
-        symbol = st.selectbox("Symbol", ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"])
+        symbol = st.selectbox("Symbol", ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"],
+                             label_visibility="collapsed")
     with col2:
-        timeframe = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1)
+        timeframe = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1, label_visibility="collapsed")
     with col3:
-        days = st.number_input("Days", 30, 365, 180)
-    
-    if st.button("🔍 Analyze Patterns", use_container_width=True, type="primary"):
-        engine = load_engine()
-        if engine:
-            with st.spinner("Analyzing patterns..."):
-                try:
-                    patterns = engine.detect_patterns(symbol, timeframe, days=days)
-                    st.session_state.detected_patterns = patterns
-                    st.success(f"✅ Found {patterns.total_found} patterns!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-    
-    st.divider()
+        days = st.number_input("Days", 30, 365, 180, label_visibility="collapsed")
+    with col4:
+        if st.button("Analyze", use_container_width=True, type="primary"):
+            engine = load_engine()
+            if engine:
+                with st.spinner("Analyzing patterns..."):
+                    try:
+                        patterns = engine.detect_patterns(symbol, timeframe, days=days)
+                        st.session_state.detected_patterns = patterns
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+
+    st.markdown("<div style='height: 24px'></div>", unsafe_allow_html=True)
     
     if st.session_state.detected_patterns:
         patterns = st.session_state.detected_patterns
@@ -583,15 +739,10 @@ def render_analyzer():
 # PAGE: VRD REPORTS - Full Quant Validation Suite
 # ============================================================================
 def render_vrd_reports():
-    """
-    Immersive VRD validation reports page.
-    
-    Loads and displays real validation data from:
-    - results/professional_validation/
-    - results/charts/
-    """
-    st.title("📊 VRD Validation Suite")
-    st.caption("Institutional-Grade Strategy Validation | Monte Carlo • Permutation • Walk-Forward")
+    """VRD validation reports page - terminal design."""
+
+    # Terminal-style header
+    st.markdown(terminal_header("VALIDATION REPORTS", show_live=False), unsafe_allow_html=True)
     
     # Find validation directories
     validation_dirs = [
@@ -616,81 +767,69 @@ def render_vrd_reports():
     
     # Parse report data
     report_data = parse_validation_report(report_path) if report_path else get_sample_report_data()
-    
-    # ========== EXECUTIVE SUMMARY BANNER ==========
+
+    # Executive Summary Banner
     verdict = report_data.get("verdict", "UNKNOWN")
     confidence = report_data.get("confidence_score", 50)
-    
-    if verdict == "DEPLOY":
-        st.success(f"## ✅ VERDICT: {verdict}")
-        st.markdown(f"**Confidence Score: {confidence}/100** — Strategy validated for live deployment")
-    elif verdict == "CAUTION":
-        st.warning(f"## ⚠️ VERDICT: {verdict}")
-        st.markdown(f"**Confidence Score: {confidence}/100** — Review recommended before deployment")
-    else:
-        st.error(f"## ❌ VERDICT: {verdict}")
-        st.markdown(f"**Confidence Score: {confidence}/100** — Not recommended for deployment")
-    
-    st.divider()
-    
-    # ========== KEY METRICS ROW ==========
+    verdict_color = "#22c55e" if verdict == "DEPLOY" else "#eab308" if verdict == "CAUTION" else "#ef4444"
+
+    # Build HTML using string concatenation (not multi-line f-strings)
+    banner_html = '<div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px; padding: 20px 24px; margin-bottom: 24px;">'
+    banner_html += '<div style="display: flex; justify-content: space-between; align-items: center;">'
+    banner_html += '<div>'
+    banner_html += f'<span style="background: {verdict_color}; color: #0a0f14; padding: 4px 12px; border-radius: 2px; font-family: JetBrains Mono, monospace; font-size: 0.75rem; font-weight: 700;">{verdict}</span>'
+    banner_html += f'<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.75rem; margin-top: 8px;">Confidence: {confidence}/100</div>'
+    banner_html += '</div>'
+    banner_html += f'<div style="color: {verdict_color}; font-family: JetBrains Mono, monospace; font-size: 2.5rem; font-weight: 600;">{confidence}%</div>'
+    banner_html += '</div></div>'
+    st.markdown(banner_html, unsafe_allow_html=True)
+
+    # Key Metrics Row
     col1, col2, col3, col4, col5 = st.columns(5)
-    
+
     col1.metric("Total Trades", report_data.get("total_trades", 0))
     col2.metric("Win Rate", f"{report_data.get('win_rate', 0):.1%}")
     col3.metric("Sharpe Ratio", f"{report_data.get('sharpe_ratio', 0):.2f}")
     col4.metric("Profit Factor", f"{report_data.get('profit_factor', 0):.2f}")
     col5.metric("Max Drawdown", f"{report_data.get('max_drawdown', 0):.1%}")
-    
-    st.divider()
-    
-    # ========== TABBED SECTIONS ==========
+
+    st.markdown("<div style='height: 24px'></div>", unsafe_allow_html=True)
+
+    # Tabbed Sections
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 Equity Curve",
-        "🎲 Monte Carlo",
-        "📊 Permutation Test",
-        "📉 Drawdown Analysis",
-        "📋 Full Report"
+        "EQUITY", "MONTE CARLO", "PERMUTATION", "DRAWDOWN", "REPORT"
     ])
-    
-    # ---------- TAB 1: EQUITY CURVE ----------
+
+    # TAB 1: EQUITY CURVE
     with tab1:
-        st.subheader("📈 Equity Curve Performance")
-        st.markdown("Visualizes the strategy's equity growth over time with regime annotations.")
-        
+        st.caption("EQUITY CURVE PERFORMANCE")
+
         equity_chart = find_chart(charts_dir, ["equity_curve", "equity"])
         if equity_chart:
             st.image(str(equity_chart), use_container_width=True)
-            st.caption(f"Source: {equity_chart.name}")
         else:
             st.info("Equity curve chart not found. Run a validation to generate.")
-        
-        # Additional equity metrics
-        st.markdown("---")
+
+        st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns(3)
         col1.metric("Starting Capital", "$100,000")
         col2.metric("Final Equity", f"${100000 * (1 + report_data.get('total_return', 0.53)):,.0f}")
         col3.metric("Total Return", f"{report_data.get('total_return', 0.53):.1%}")
-    
-    # ---------- TAB 2: MONTE CARLO ----------
+
+    # TAB 2: MONTE CARLO
     with tab2:
-        st.subheader("🎲 Monte Carlo Risk Analysis")
-        st.markdown("""
-        Monte Carlo simulation reorders trades randomly to estimate the **range of possible outcomes**.
-        This tests whether your results depend on trade sequence or are robust across different orderings.
-        """)
-        
+        st.caption("MONTE CARLO RISK ANALYSIS")
+
         mc_chart = find_chart(charts_dir, ["monte_carlo_cones", "monte_carlo"])
         if mc_chart:
             st.image(str(mc_chart), use_container_width=True)
-            st.caption(f"Source: {mc_chart.name}")
         else:
             st.info("Monte Carlo chart not found. Run a validation to generate.")
         
-        st.markdown("---")
-        
+        st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
+
         # Monte Carlo metrics
-        st.markdown("### Risk Metrics")
+        st.caption("RISK METRICS")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("VaR 95%", f"{report_data.get('var_95', 22.98):.1f}%", 
                    help="95% of paths have max DD below this")
@@ -708,11 +847,7 @@ def render_vrd_reports():
     
     # ---------- TAB 3: PERMUTATION TEST ----------
     with tab3:
-        st.subheader("📊 Permutation Test - Skill vs Luck")
-        st.markdown("""
-        The permutation test shuffles trades **10,000 times** to test if your Sharpe Ratio 
-        could have occurred by random chance. A **p-value < 0.05** indicates statistically significant edge.
-        """)
+        st.caption("SKILL VS LUCK ANALYSIS")
         
         perm_chart = find_chart(charts_dir, ["permutation_test", "permutation"])
         if perm_chart:
@@ -721,35 +856,31 @@ def render_vrd_reports():
         else:
             st.info("Permutation test chart not found. Run a validation to generate.")
         
-        st.markdown("---")
-        
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+
         # Statistical significance metrics
-        st.markdown("### Statistical Significance")
+        st.caption("STATISTICAL SIGNIFICANCE")
         col1, col2, col3, col4 = st.columns(4)
-        
+
         p_value = report_data.get('p_value', 0.884)
         is_significant = p_value < 0.05
-        
+
         col1.metric("Actual Sharpe", f"{report_data.get('actual_sharpe', 0.269):.3f}")
-        col2.metric("P-Value", f"{p_value:.4f}", 
-                   delta="✅ Significant" if is_significant else "❌ Not Significant",
+        col2.metric("P-Value", f"{p_value:.4f}",
+                   delta="Significant" if is_significant else "Not Significant",
                    delta_color="normal" if is_significant else "inverse")
         col3.metric("Percentile", f"{report_data.get('percentile', 11.6):.1f}%")
         col4.metric("Permutations", "10,000")
-        
+
         # Interpretation box
         if is_significant:
-            st.success("**Interpretation:** Results are statistically significant. The strategy shows genuine edge beyond random chance.")
+            st.success("Results statistically significant - genuine edge detected")
         else:
-            st.warning("**Interpretation:** Cannot distinguish from random chance (p ≥ 0.05). Need more trades or stronger signal.")
-    
+            st.warning("Cannot distinguish from random chance (p >= 0.05)")
+
     # ---------- TAB 4: DRAWDOWN ANALYSIS ----------
     with tab4:
-        st.subheader("📉 Drawdown Analysis")
-        st.markdown("""
-        Drawdown measures peak-to-trough decline in equity. Understanding recovery time 
-        is critical for position sizing and risk management.
-        """)
+        st.caption("DRAWDOWN ANALYSIS")
         
         dd_chart = find_chart(charts_dir, ["drawdown_analysis", "drawdowns", "drawdown"])
         if dd_chart:
@@ -758,19 +889,19 @@ def render_vrd_reports():
         else:
             st.info("Drawdown chart not found. Run a validation to generate.")
         
-        st.markdown("---")
-        
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+
         # Drawdown metrics
-        st.markdown("### Drawdown Statistics")
+        st.caption("DRAWDOWN STATISTICS")
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Maximum Drawdown", f"{report_data.get('max_drawdown', -0.149):.1%}")
+        col1.metric("Max Drawdown", f"{report_data.get('max_drawdown', -0.149):.1%}")
         col2.metric("Avg Recovery", f"{report_data.get('avg_recovery', 7):.0f} trades")
         col3.metric("95% Recovery", f"{report_data.get('recovery_95', 15):.0f} trades")
         col4.metric("Avg Loss", f"{report_data.get('avg_loss', -4.16):.2f}%")
-    
+
     # ---------- TAB 5: FULL REPORT ----------
     with tab5:
-        st.subheader("📋 Complete Validation Report")
+        st.caption("COMPLETE VALIDATION REPORT")
         
         if report_path and report_path.exists():
             with open(report_path, 'r') as f:
@@ -779,7 +910,7 @@ def render_vrd_reports():
             
             # Download button
             st.download_button(
-                "📥 Download Report (.md)",
+                "Download Report",
                 report_content,
                 file_name="validation_report.md",
                 mime="text/markdown"
@@ -788,35 +919,32 @@ def render_vrd_reports():
             st.info("No report file found. Run validation to generate.")
             st.code("python cli/run_vrd_validation.py --symbol BTC/USDT --timeframe 4h", language="bash")
     
-    st.divider()
-    
+    st.markdown('<div style="height: 24px;"></div>', unsafe_allow_html=True)
+
     # ========== ACTIONS ==========
-    st.subheader("🛠️ Actions")
-    
+    st.caption("ACTIONS")
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
-        if st.button("🔄 Run New Validation", use_container_width=True, type="primary"):
+        if st.button("Run New Validation", use_container_width=True, type="primary"):
             st.info("Run: `python cli/run_vrd_validation.py`")
-    
+
     with col2:
         # Find available reports
         reports_dir = PROJECT_ROOT / "results"
         if reports_dir.exists():
             report_files = list(reports_dir.glob("**/professional_report.md"))
             if report_files:
-                selected = st.selectbox("📂 Load Report", [f.parent.name for f in report_files], label_visibility="collapsed")
-    
+                selected = st.selectbox("Load Report", [f.parent.name for f in report_files], label_visibility="collapsed")
+
     with col3:
-        if st.button("📊 Open Charts Folder", use_container_width=True):
+        if st.button("Open Charts Folder", use_container_width=True):
             st.info(f"Charts: {charts_dir or 'Not found'}")
-    
+
     with col4:
         if charts_dir:
-            import base64
-            import io
-            # Simple ZIP creation would go here
-            st.button("📥 Export All Charts", use_container_width=True, disabled=True)
+            st.button("Export All Charts", use_container_width=True, disabled=True)
 
 
 def find_chart(charts_dir: Optional[Path], names: List[str]) -> Optional[Path]:
@@ -945,220 +1073,459 @@ def get_sample_report_data() -> Dict:
 # ============================================================================
 # PAGE: SETTINGS
 # ============================================================================
+def load_yaml_config():
+    """Load configuration from YAML file."""
+    import yaml
+    config_path = PROJECT_ROOT / "config" / "default.yaml"
+    try:
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+    return {}
+
+def save_yaml_config(config: dict):
+    """Save configuration to YAML file."""
+    import yaml
+    config_path = PROJECT_ROOT / "config" / "default.yaml"
+    try:
+        # Add header comment
+        header = """# QML Trading System - Default Configuration
+# ==========================================
+# This file contains all tunable parameters for the trading system.
+# Override these values in strategy-specific configs under config/strategies/
+
+"""
+        with open(config_path, 'w') as f:
+            f.write(header)
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save config: {e}")
+        return False
+
 def render_settings():
-    """Settings page."""
-    st.title("⚙️ Settings")
-    st.caption("Configure detection and display parameters")
-    
-    tab1, tab2, tab3 = st.tabs(["🔍 Detection", "📊 Charts", "🔧 System"])
-    
+    """Settings page with persistent YAML configuration."""
+    # Terminal-style header
+    st.markdown(terminal_header("SETTINGS", show_live=False), unsafe_allow_html=True)
+
+    # Load current config
+    if 'yaml_config' not in st.session_state:
+        st.session_state.yaml_config = load_yaml_config()
+
+    config = st.session_state.yaml_config
+
+    # Ensure nested dicts exist
+    if 'detection' not in config:
+        config['detection'] = {}
+    if 'qml' not in config['detection']:
+        config['detection']['qml'] = {}
+    if 'backtest' not in config:
+        config['backtest'] = {}
+    if 'risk' not in config['backtest']:
+        config['backtest']['risk'] = {}
+    if 'data' not in config:
+        config['data'] = {}
+    if 'reporting' not in config:
+        config['reporting'] = {}
+
+    tab1, tab2, tab3 = st.tabs(["DETECTION", "CHARTS", "SYSTEM"])
+
     with tab1:
-        st.subheader("Detection Parameters")
-        
+        st.caption("DETECTION PARAMETERS")
+
         c1, c2 = st.columns(2)
         with c1:
-            st.number_input("ATR Period", 7, 21, 14)
-            st.number_input("Swing Lookback", 5, 20, 10)
-            st.slider("Min Validity Score", 0.3, 1.0, 0.7, 0.05)
+            config['detection']['atr_period'] = st.number_input(
+                "ATR Period", 7, 21,
+                value=config['detection'].get('atr_period', 14),
+                key="atr_period"
+            )
+            config['detection']['swing_window'] = st.number_input(
+                "Swing Lookback", 3, 20,
+                value=config['detection'].get('swing_window', 5),
+                key="swing_window"
+            )
+            config['detection']['qml']['min_depth_ratio'] = st.slider(
+                "Min Depth Ratio", 0.3, 1.0,
+                value=float(config['detection']['qml'].get('min_depth_ratio', 0.5)),
+                step=0.05,
+                key="min_depth_ratio",
+                help="P3 must retrace at least this % of P1-P2"
+            )
         with c2:
-            st.number_input("Min Head Depth (ATR)", 0.5, 3.0, 0.5, 0.1)
-            st.number_input("Max Head Depth (ATR)", 1.0, 5.0, 3.0, 0.5)
-            st.slider("Stop Loss ATR Multiplier", 0.5, 3.0, 1.5, 0.1)
-    
+            config['backtest']['risk']['stop_loss_atr_mult'] = st.slider(
+                "Stop Loss ATR Mult", 0.5, 3.0,
+                value=float(config['backtest']['risk'].get('stop_loss_atr_mult', 1.5)),
+                step=0.1,
+                key="sl_atr_mult"
+            )
+            config['backtest']['risk']['take_profit_atr_mult'] = st.slider(
+                "Take Profit ATR Mult", 1.0, 5.0,
+                value=float(config['backtest']['risk'].get('take_profit_atr_mult', 3.0)),
+                step=0.5,
+                key="tp_atr_mult"
+            )
+            config['detection']['qml']['confirmation_atr_mult'] = st.slider(
+                "Confirmation ATR Mult", 0.2, 1.0,
+                value=float(config['detection']['qml'].get('confirmation_atr_mult', 0.5)),
+                step=0.1,
+                key="confirm_atr_mult",
+                help="ATR multiplier for P5 confirmation"
+            )
+
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+        st.caption("PATTERN CONSTRAINTS")
+        c3, c4 = st.columns(2)
+        with c3:
+            config['detection']['min_pattern_bars'] = st.number_input(
+                "Min Pattern Bars", 10, 50,
+                value=config['detection'].get('min_pattern_bars', 20),
+                key="min_bars"
+            )
+        with c4:
+            config['detection']['max_pattern_bars'] = st.number_input(
+                "Max Pattern Bars", 50, 500,
+                value=config['detection'].get('max_pattern_bars', 200),
+                key="max_bars"
+            )
+
     with tab2:
-        st.subheader("Chart Settings")
-        
+        st.caption("CHART SETTINGS")
+
         c1, c2 = st.columns(2)
         with c1:
-            st.selectbox("Theme", ["Dark", "Light"], index=0)
-            st.slider("Chart Height", 400, 800, 500, 50)
+            theme_options = ["dark", "light"]
+            current_theme = config['reporting'].get('chart_style', 'dark')
+            theme_idx = theme_options.index(current_theme) if current_theme in theme_options else 0
+            config['reporting']['chart_style'] = st.selectbox(
+                "Theme", theme_options, index=theme_idx, key="chart_theme"
+            )
+            config['reporting']['dpi'] = st.slider(
+                "Chart DPI", 100, 300,
+                value=config['reporting'].get('dpi', 150),
+                step=25,
+                key="chart_dpi"
+            )
         with c2:
-            st.selectbox("Default Timeframe", ["1h", "4h", "1d"], index=1)
-            st.checkbox("Show Volume", value=True)
-            st.checkbox("Show Moving Averages", value=True)
-    
+            tf_options = ["1h", "4h", "1d"]
+            current_tf = config['data'].get('default_timeframe', '4h')
+            tf_idx = tf_options.index(current_tf) if current_tf in tf_options else 1
+            config['data']['default_timeframe'] = st.selectbox(
+                "Default Timeframe", tf_options, index=tf_idx, key="default_tf"
+            )
+            config['reporting']['include_charts'] = st.checkbox(
+                "Include Charts in Reports",
+                value=config['reporting'].get('include_charts', True),
+                key="include_charts"
+            )
+
     with tab3:
-        st.subheader("System Configuration")
-        
+        st.caption("SYSTEM CONFIGURATION")
+
         engine = load_engine()
         if engine:
-            st.success("🟢 Engine Status: Online")
+            st.success("Engine Status: Online")
             if hasattr(engine, 'get_status'):
                 with st.expander("Engine Details"):
                     st.json(engine.get_status())
         else:
-            st.error("🔴 Engine Status: Offline")
-        
-        st.divider()
-        
+            st.error("Engine Status: Offline")
+
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+
         # Data sources
-        st.subheader("Data Sources")
-        st.selectbox("Exchange", ["Binance", "Bybit", "Coinbase"], index=0)
-        st.text_input("API Key", type="password", placeholder="Enter API key...")
-    
-    st.divider()
-    
-    if st.button("💾 Save Settings", use_container_width=True, type="primary"):
-        st.success("✅ Settings saved!")
+        st.caption("DATA SOURCES")
+        source_options = ["binance", "bybit", "coinbase"]
+        current_source = config['data'].get('source', 'binance')
+        source_idx = source_options.index(current_source) if current_source in source_options else 0
+        config['data']['source'] = st.selectbox(
+            "Exchange", source_options, index=source_idx, key="exchange"
+        )
+
+        config['data']['default_symbol'] = st.text_input(
+            "Default Symbol",
+            value=config['data'].get('default_symbol', 'BTCUSDT'),
+            key="default_symbol"
+        )
+
+        config['data']['lookback_days'] = st.number_input(
+            "History Lookback (days)", 365, 2000,
+            value=config['data'].get('lookback_days', 1460),
+            key="lookback_days"
+        )
+
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+
+        # Backtest settings
+        st.caption("BACKTEST DEFAULTS")
+        c1, c2 = st.columns(2)
+        with c1:
+            config['backtest']['initial_capital'] = st.number_input(
+                "Initial Capital ($)", 1000, 1000000,
+                value=int(config['backtest'].get('initial_capital', 10000)),
+                step=1000,
+                key="initial_capital"
+            )
+        with c2:
+            config['backtest']['commission'] = st.number_input(
+                "Commission (%)", 0.0, 1.0,
+                value=float(config['backtest'].get('commission', 0.001)) * 100,
+                step=0.01,
+                format="%.3f",
+                key="commission"
+            ) / 100
+
+    st.markdown('<div style="height: 32px;"></div>', unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+
+    with col1:
+        if st.button("Save Settings", use_container_width=True, type="primary"):
+            if save_yaml_config(config):
+                st.success("Settings saved to config/default.yaml!")
+                # Clear engine cache so new settings take effect
+                load_engine.clear()
+            else:
+                st.error("Failed to save settings")
+
+    with col2:
+        if st.button("Reload", use_container_width=True):
+            st.session_state.yaml_config = load_yaml_config()
+            st.rerun()
+
+    with col3:
+        if st.button("Reset Defaults", use_container_width=True):
+            st.session_state.yaml_config = {}
+            st.info("Click 'Reload' to restore from file")
 
 
 # ============================================================================
 # PAGE: BACKTEST
 # ============================================================================
+def run_real_backtest(symbol: str, timeframe: str, initial_capital: float, position_size_pct: float, min_validity: float):
+    """
+    Run a real backtest using the CLI backtest engine.
+
+    Returns dict with results and equity curve.
+    """
+    from cli.run_backtest import BacktestConfig, BacktestEngine, load_data
+    from src.detection import get_detector
+    from src.core.models import SignalType
+
+    # Normalize symbol for file lookup
+    symbol_normalized = symbol.replace('/', '').replace('-', '').upper()
+
+    # Create config
+    config = BacktestConfig(
+        symbol=symbol_normalized,
+        timeframe=timeframe,
+        initial_capital=initial_capital,
+        position_size_pct=position_size_pct,
+        min_validity_score=min_validity,
+        use_stop_loss=True,
+        use_take_profit=True,
+    )
+
+    # Load data
+    df = load_data(config)
+
+    # Get detector and run detection
+    detector = get_detector("atr", {'min_validity_score': min_validity})
+    signals = detector.detect(df, symbol=symbol_normalized, timeframe=timeframe)
+
+    # Run backtest
+    engine = BacktestEngine(config)
+    results = engine.run(df, signals)
+
+    # Format trades for display
+    trades_display = []
+    for trade in results.get('trades', []):
+        trades_display.append({
+            'Entry Time': trade.entry_time.strftime('%Y-%m-%d %H:%M') if trade.entry_time else 'N/A',
+            'Exit Time': trade.exit_time.strftime('%Y-%m-%d %H:%M') if trade.exit_time else 'N/A',
+            'Type': trade.pattern_type or 'QML',
+            'Side': trade.side.value if trade.side else 'N/A',
+            'Entry': f"${trade.entry_price:,.2f}",
+            'Exit': f"${trade.exit_price:,.2f}" if trade.exit_price else 'N/A',
+            'P&L %': f"{trade.pnl_pct:+.2f}%" if trade.pnl_pct else 'N/A',
+            'Result': 'Win' if trade.pnl_pct and trade.pnl_pct > 0 else 'Loss'
+        })
+
+    return {
+        'symbol': symbol,
+        'timeframe': timeframe,
+        'initial_capital': initial_capital,
+        'final_equity': results.get('final_equity', initial_capital),
+        'total_return': results.get('net_profit_pct', 0) / 100,
+        'max_drawdown': results.get('max_drawdown', 0) / 100,
+        'total_trades': results.get('total_trades', 0),
+        'win_rate': results.get('win_rate', 0) / 100,
+        'sharpe_ratio': results.get('sharpe_ratio', 0),
+        'profit_factor': results.get('profit_factor', 0),
+        'avg_win': results.get('avg_win', 0),
+        'avg_loss': results.get('avg_loss', 0),
+        'equity_curve': results.get('equity_curve', []),
+        'trades': trades_display,
+        'signals_found': len(signals),
+    }
+
+
 def render_backtest():
-    """Backtest runner page."""
-    st.title("📉 Backtest Runner")
-    st.caption("Run strategy backtests and analyze historical performance")
-    
+    """Backtest runner page - terminal design."""
+
+    # Terminal-style header
+    st.markdown(terminal_header("BACKTEST ENGINE", show_live=False), unsafe_allow_html=True)
+
     # Session state for results
     if 'backtest_result' not in st.session_state:
         st.session_state.backtest_result = None
-    
+
     # Configuration
-    col1, col2 = st.columns([2, 1])
-    
+    col1, col2 = st.columns([3, 1], gap="medium")
+
     with col1:
-        st.subheader("⚙️ Configuration")
-        
+        st.caption("CONFIGURATION")
+
         c1, c2, c3 = st.columns(3)
         with c1:
-            symbol = st.selectbox("Symbol", ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"])
+            symbol = st.selectbox("Symbol", ["BTC/USDT", "ETH/USDT", "SOL/USDT"], key="bt_symbol", label_visibility="collapsed")
         with c2:
-            timeframe = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1)
+            timeframe = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1, key="bt_tf", label_visibility="collapsed")
         with c3:
-            days = st.slider("History (days)", 90, 730, 365)
-        
+            min_validity = st.slider("Min Validity", 0.3, 1.0, 0.7, 0.05, key="bt_validity", label_visibility="collapsed")
+
         c4, c5 = st.columns(2)
         with c4:
-            initial_capital = st.number_input("Initial Capital ($)", 10000, 1000000, 100000, 10000)
+            initial_capital = st.number_input("Initial Capital ($)", 1000, 1000000, 10000, 1000, key="bt_capital", label_visibility="collapsed")
         with c5:
-            risk_per_trade = st.slider("Risk per Trade (%)", 0.5, 5.0, 2.0, 0.5)
-    
+            position_size = st.slider("Position Size (%)", 1, 20, 10, 1, key="bt_pos_size", label_visibility="collapsed")
+
     with col2:
-        st.subheader("🎯 Actions")
-        
-        if st.button("🚀 Run Backtest", use_container_width=True, type="primary"):
-            # Run backtest using the engine
-            engine = load_engine()
-            if engine:
-                progress = st.progress(0, text="Starting backtest...")
-                
-                try:
-                    progress.progress(25, text="Fetching data...")
-                    
-                    # Get patterns for backtest
-                    patterns = engine.detect_patterns(
-                        symbol=symbol,
-                        timeframe=timeframe,
-                        days=days,
-                        min_validity=0.5
-                    )
-                    
-                    progress.progress(75, text="Running simulation...")
-                    
-                    # Simulate simple backtest
-                    trades = []
-                    equity = initial_capital
-                    peak_equity = initial_capital
-                    max_dd = 0
-                    
-                    for p in patterns.patterns:
-                        entry = p.get('entry_price', 0)
-                        tp = p.get('take_profit', entry * 1.05)
-                        sl = p.get('stop_loss', entry * 0.95)
-                        rr = p.get('risk_reward', 1.5)
-                        
-                        # Simple win/loss based on validity
-                        win_prob = p.get('validity', 0.5)
-                        is_win = np.random.random() < win_prob
-                        
-                        risk_amount = equity * (risk_per_trade / 100)
-                        
-                        if is_win:
-                            pnl = risk_amount * rr
-                        else:
-                            pnl = -risk_amount
-                        
-                        equity += pnl
-                        peak_equity = max(peak_equity, equity)
-                        dd = (peak_equity - equity) / peak_equity
-                        max_dd = max(max_dd, dd)
-                        
-                        trades.append({
-                            'type': p.get('type', 'unknown'),
-                            'entry': entry,
-                            'exit': tp if is_win else sl,
-                            'pnl': pnl,
-                            'result': 'Win' if is_win else 'Loss'
-                        })
-                    
-                    progress.progress(100, text="Complete!")
-                    progress.empty()
-                    
-                    # Store results
-                    st.session_state.backtest_result = {
-                        'symbol': symbol,
-                        'timeframe': timeframe,
-                        'initial_capital': initial_capital,
-                        'final_equity': equity,
-                        'total_return': (equity - initial_capital) / initial_capital,
-                        'max_drawdown': max_dd,
-                        'total_trades': len(trades),
-                        'win_rate': sum(1 for t in trades if t['result'] == 'Win') / len(trades) if trades else 0,
-                        'trades': trades
-                    }
-                    
-                    st.success(f"✅ Backtest complete: {len(trades)} trades")
-                    st.rerun()
-                    
-                except Exception as e:
-                    progress.empty()
-                    st.error(f"Backtest failed: {e}")
-            else:
-                st.error("Engine not available")
-        
-        st.write("")
-        
-        if st.button("🗑️ Clear Results", use_container_width=True):
+        st.caption("ACTIONS")
+
+        if st.button("RUN BACKTEST", use_container_width=True, type="primary"):
+            progress = st.progress(0, text="Initializing...")
+
+            try:
+                progress.progress(20, text="Loading data...")
+                progress.progress(50, text="Running detection...")
+                progress.progress(75, text="Simulating trades...")
+
+                result = run_real_backtest(
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    initial_capital=float(initial_capital),
+                    position_size_pct=position_size / 100,
+                    min_validity=min_validity
+                )
+
+                progress.progress(100, text="Complete!")
+                progress.empty()
+
+                st.session_state.backtest_result = result
+                st.rerun()
+
+            except FileNotFoundError as e:
+                progress.empty()
+                st.error(f"Data not found: {e}")
+                st.info("Run: `python -m src.data_engine --symbol BTCUSDT` to fetch data")
+            except Exception as e:
+                progress.empty()
+                st.error(f"Backtest failed: {e}")
+                logger.exception("Backtest error")
+
+        st.markdown("<div style='height: 8px'></div>", unsafe_allow_html=True)
+
+        if st.button("Clear", use_container_width=True, type="secondary"):
             st.session_state.backtest_result = None
             st.rerun()
-    
-    st.divider()
-    
+
+    st.markdown("<div style='height: 24px'></div>", unsafe_allow_html=True)
+
     # Display results
     if st.session_state.backtest_result:
         result = st.session_state.backtest_result
-        
-        st.subheader(f"📊 {result['symbol']} Backtest Results")
-        
+
+        # Results header
+        st.caption(f"RESULTS - {result['symbol']} {result['timeframe'].upper()}")
+
+        # Row 1: Key metrics
         col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("Final Equity", f"${result['final_equity']:,.0f}")
-        col2.metric("Total Return", f"{result['total_return']:.1%}")
+        col2.metric("Total Return", f"{result['total_return']:+.1%}")
         col3.metric("Win Rate", f"{result['win_rate']:.1%}")
-        col4.metric("Max Drawdown", f"{result['max_drawdown']:.1%}")
+        col4.metric("Sharpe Ratio", f"{result['sharpe_ratio']:.2f}")
         col5.metric("Total Trades", result['total_trades'])
-        
-        st.divider()
-        
+
+        st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
+
+        # Row 2: Additional metrics
+        col6, col7, col8, col9 = st.columns(4)
+        col6.metric("Max Drawdown", f"{result['max_drawdown']:.1%}")
+        col7.metric("Profit Factor", f"{result['profit_factor']:.2f}")
+        col8.metric("Avg Win", f"{result['avg_win']:+.2f}%")
+        col9.metric("Avg Loss", f"{result['avg_loss']:.2f}%")
+
+        st.markdown("<div style='height: 32px'></div>", unsafe_allow_html=True)
+
+        # Equity curve chart
+        if result['equity_curve']:
+            st.caption("EQUITY CURVE")
+
+            eq_df = pd.DataFrame(result['equity_curve'], columns=['time', 'equity'])
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=eq_df['time'],
+                y=eq_df['equity'],
+                mode='lines',
+                name='Equity',
+                line=dict(color='#22c55e', width=2),
+                fill='tozeroy',
+                fillcolor='rgba(34, 197, 94, 0.1)'
+            ))
+
+            # Add initial capital line
+            fig.add_hline(y=result['initial_capital'], line_dash="dash",
+                         line_color="#5a6a7a", annotation_text="Initial")
+
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#111820",
+                plot_bgcolor="#0a0f14",
+                height=350,
+                margin=dict(l=0, r=0, t=20, b=0),
+                xaxis=dict(showgrid=False, color="#5a6a7a", gridcolor="#1e2d3d"),
+                yaxis=dict(showgrid=True, gridcolor="#1e2d3d", color="#5a6a7a"),
+                font=dict(color="#8b9cb3", family="JetBrains Mono, monospace"),
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("<div style='height: 32px'></div>", unsafe_allow_html=True)
+
         # Trade history
         if result['trades']:
-            st.subheader("📋 Trade History")
-            
+            st.caption("TRADE HISTORY")
+
             df = pd.DataFrame(result['trades'])
-            
-            # Color-code results
             st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            # Summary stats
-            st.markdown("---")
-            c1, c2, c3 = st.columns(3)
-            wins = sum(1 for t in result['trades'] if t['result'] == 'Win')
-            losses = len(result['trades']) - wins
-            c1.metric("Winning Trades", wins)
-            c2.metric("Losing Trades", losses)
-            c3.metric("Net P&L", f"${result['final_equity'] - result['initial_capital']:,.0f}")
+
+            # Export button
+            csv = df.to_csv(index=False)
+            st.download_button(
+                "Export CSV",
+                csv,
+                f"backtest_{result['symbol'].replace('/', '')}_{result['timeframe']}.csv",
+                "text/csv"
+            )
     else:
-        st.info("Configure parameters above and click 'Run Backtest'")
+        empty_html = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
+        empty_html += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Configure parameters and click RUN BACKTEST</div>'
+        empty_html += '</div>'
+        st.markdown(empty_html, unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -1168,15 +1535,14 @@ def render_neuro_lab():
     """ML Neuro-Lab - Pattern learning and prediction."""
     import plotly.express as px
     import plotly.graph_objects as go
-    
-    st.title("🧠 Neuro-Lab")
-    st.caption("Machine Learning Pattern Analysis & Training")
+
+    # Terminal-style header
+    st.markdown(terminal_header("NEURO-LAB", show_live=False), unsafe_allow_html=True)
     
     # Load pattern registry
     try:
         from src.ml.pattern_registry import PatternRegistry
-        from src.core.data import load_ohlcv_cached
-        from src.ml.pattern_registry import load_patterns_cached # Import the cached function
+        # Note: load_ohlcv_cached and load_patterns_cached are defined at module level
         registry = PatternRegistry()
         stats = registry.get_statistics()
         registry_loaded = True
@@ -1186,29 +1552,30 @@ def render_neuro_lab():
         stats = {}
     
     # Top metrics
+    st.caption("PATTERN STATISTICS")
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     total = stats.get('total_patterns', 0)
     labeled = stats.get('labeled_patterns', 0)
     wins = stats.get('win_count', 0)
     losses = stats.get('loss_count', 0)
-    
-    col1.metric("🗄️ Total Patterns", total)
-    col2.metric("🏷️ Labeled", labeled)
-    col3.metric("✅ Wins", wins)
-    col4.metric("❌ Losses", losses)
-    
-    st.divider()
-    
+
+    col1.metric("Total Patterns", total)
+    col2.metric("Labeled", labeled)
+    col3.metric("Wins", wins)
+    col4.metric("Losses", losses)
+
+    st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+
     # Tabs
-    # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "🧬 Features", "🎯 Training", "🔮 Predictions", "📄 Paper Trading"])
-    
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["OVERVIEW", "FEATURES", "TRAINING", "PREDICTIONS", "PAPER TRADING"])
+
     with tab1:
-        st.subheader("📊 Pattern Registry Overview")
-        
+        st.caption("PATTERN REGISTRY")
+
         if not registry_loaded:
-            st.warning("⚠️ Pattern registry not available. Run backtests to populate.")
+            st.warning("Pattern registry not available. Run backtests to populate.")
         else:
             left, right = st.columns(2)
             
@@ -1252,7 +1619,8 @@ def render_neuro_lab():
                     st.info("Label patterns to see win/loss distribution")
             
             # Recent patterns table
-            st.subheader("📋 Recent Patterns - Click to View & Label")
+            st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+            st.caption("RECENT PATTERNS")
             try:
                 # Load recent patterns with pagination (limit to prevent RAM overload)
                 patterns = load_patterns_cached(limit=20)
@@ -1375,10 +1743,8 @@ def render_neuro_lab():
                 st.error(f"Error loading patterns: {e}")
     
     with tab2:
-        st.subheader("🧬 Feature Analysis")
-        
-        st.info("📊 The system extracts 170+ features from each pattern for ML training")
-        
+        st.caption("FEATURE ANALYSIS")
+
         # Feature categories
         feature_cats = {
             "Price Structure": ["swing_amplitude", "trend_strength", "volatility_ratio"],
@@ -1387,14 +1753,15 @@ def render_neuro_lab():
             "Pattern Quality": ["validity_score", "fibonacci_alignment", "structure_clarity"],
             "Market Context": ["relative_position", "atr_ratio", "market_regime"]
         }
-        
+
         for cat, features in feature_cats.items():
-            with st.expander(f"📁 {cat}", expanded=False):
+            with st.expander(cat, expanded=False):
                 for f in features:
                     st.markdown(f"- `{f}`")
-        
+
         # Feature importance chart
-        st.subheader("📈 Feature Importance")
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+        st.caption("FEATURE IMPORTANCE")
         
         importance_data = {
             'Feature': ['validity_score', 'swing_amplitude', 'trend_strength', 'fibonacci_alignment', 'atr_ratio', 'volume_surge', 'structure_clarity'],
@@ -1415,12 +1782,12 @@ def render_neuro_lab():
         st.plotly_chart(fig, use_container_width=True)
     
     with tab3:
-        st.subheader("🎯 Model Training")
-        
+        st.caption("MODEL TRAINING")
+
         col1, col2 = st.columns([2, 1])
-        
+
         with col1:
-            st.markdown("**Training Configuration**")
+            st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
             
             model_type = st.selectbox(
                 "Model Type",
@@ -1434,147 +1801,224 @@ def render_neuro_lab():
             with c2:
                 test_split = st.slider("Test Split %", 10, 40, 20)
             
-            if st.button("🚀 Start Training", use_container_width=True):
+            if st.button("Start Training", use_container_width=True, type="primary"):
                 if labeled < min_samples:
                     st.error(f"Need at least {min_samples} labeled patterns. Currently have {labeled}.")
                 else:
                     with st.spinner("Training model..."):
                         import time
                         time.sleep(2)
-                        st.success("✅ Model trained successfully!")
+                        st.success("Model trained successfully!")
                         st.metric("Accuracy", "78.5%")
                         st.metric("F1 Score", "0.76")
-        
+
         with col2:
-            st.markdown("**Training Status**")
-            
+            st.caption("STATUS")
+
             if labeled >= 30:
-                st.success("✅ Ready to train")
+                st.success("Ready to train")
                 st.progress(min(1.0, labeled / 100), text=f"{labeled} patterns labeled")
             else:
-                st.warning(f"⚠️ Need {30 - labeled} more labeled patterns")
+                st.warning(f"Need {30 - labeled} more labeled patterns")
                 st.progress(labeled / 30, text=f"{labeled}/30 minimum")
     
     with tab4:
-        st.subheader("🔮 Live Predictions")
-        
+        st.caption("LIVE PREDICTIONS")
+
         if st.session_state.scan_results:
             for result in st.session_state.scan_results[:5]:
                 pattern_type = str(result.get('type', 'unknown'))
                 is_bullish = 'bullish' in pattern_type.lower()
-                
+
                 # Simulated ML confidence
                 ml_confidence = np.random.uniform(0.6, 0.95)
-                
-                with st.expander(f"{'🟢' if is_bullish else '🔴'} {result['symbol']} — {pattern_type.upper()}"):
+
+                with st.expander(f"{result['symbol']} - {pattern_type.upper()}"):
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Pattern Validity", f"{result['validity']:.0%}")
                     c2.metric("ML Confidence", f"{ml_confidence:.0%}")
                     c3.metric("Combined Score", f"{(result['validity'] + ml_confidence) / 2:.0%}")
-                    
+
                     if ml_confidence > 0.75:
-                        st.success("✅ High confidence - Consider taking this trade")
+                        st.success("High confidence - Consider taking this trade")
                     elif ml_confidence > 0.5:
-                        st.warning("⚠️ Medium confidence - Use caution")
+                        st.warning("Medium confidence - Use caution")
                     else:
-                        st.error("❌ Low confidence - Skip this pattern")
+                        st.error("Low confidence - Skip this pattern")
         else:
-            st.info("👆 Run a Quick Scan from Dashboard to see predictions")
-    
+            neuro_empty = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
+            neuro_empty += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Run Quick Scan from Dashboard to see predictions</div>'
+            neuro_empty += '</div>'
+            st.markdown(neuro_empty, unsafe_allow_html=True)
+
     with tab5:
-        st.subheader("📄 Paper Trading")
-        
+        st.caption("PAPER TRADING")
+
         # Initialize paper trading session state
         if 'paper_signals' not in st.session_state:
             st.session_state.paper_signals = []
         if 'paper_stats' not in st.session_state:
             st.session_state.paper_stats = {'total': 0, 'wins': 0, 'losses': 0, 'pending': 0}
-        
+
         # Paper trading controls
         col1, col2 = st.columns(2)
-        
+
         with col1:
-            st.markdown("**Paper Trading Controls**")
-            
             paper_symbols = st.multiselect(
-                "Symbols to Monitor",
-                ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"],
-                default=["BTC/USDT"]
+                "Symbols to Scan",
+                ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+                default=["BTC/USDT"],
+                key="paper_symbols"
             )
-            
-            if st.button("🔍 Scan for Signals", use_container_width=True):
-                with st.spinner("Scanning for paper trading signals..."):
-                    # Simulate finding signals
-                    import time
-                    time.sleep(1)
-                    
-                    # Add simulated signal
-                    new_signal = {
-                        'id': len(st.session_state.paper_signals) + 1,
-                        'symbol': paper_symbols[0] if paper_symbols else 'BTC/USDT',
-                        'type': 'BULLISH QML',
-                        'entry': 89500.0,
-                        'sl': 87000.0,
-                        'tp': 95000.0,
-                        'status': 'PENDING',
-                        'time': datetime.now().strftime('%H:%M:%S')
-                    }
-                    st.session_state.paper_signals.append(new_signal)
-                    st.session_state.paper_stats['total'] += 1
-                    st.session_state.paper_stats['pending'] += 1
-                    st.success(f"✅ Found 1 signal in {new_signal['symbol']}")
-                    st.rerun()
-        
+
+            c1, c2 = st.columns(2)
+            with c1:
+                paper_tf = st.selectbox("Timeframe", ["1h", "4h", "1d"], index=1, key="paper_tf")
+            with c2:
+                paper_validity = st.slider("Min Validity", 0.5, 1.0, 0.7, 0.05, key="paper_validity")
+
+            if st.button("Scan for Live Signals", use_container_width=True, type="primary"):
+                if not paper_symbols:
+                    st.warning("Select at least one symbol")
+                else:
+                    with st.spinner("Running real pattern detection..."):
+                        try:
+                            from cli.run_backtest import BacktestConfig, load_data
+                            from src.detection import get_detector
+
+                            new_signals = []
+                            for sym in paper_symbols:
+                                symbol_norm = sym.replace('/', '').replace('-', '').upper()
+
+                                # Load recent data
+                                config = BacktestConfig(symbol=symbol_norm, timeframe=paper_tf)
+                                try:
+                                    df = load_data(config)
+                                except FileNotFoundError:
+                                    st.warning(f"No data for {sym}")
+                                    continue
+
+                                # Run detection
+                                detector = get_detector("atr", {'min_validity_score': paper_validity})
+                                signals = detector.detect(df, symbol=symbol_norm, timeframe=paper_tf)
+
+                                # Only take recent signals (last 5 bars)
+                                if signals and len(df) > 0:
+                                    last_time = df['time'].iloc[-1]
+                                    for sig in signals[-3:]:  # Last 3 signals max
+                                        new_signal = {
+                                            'id': len(st.session_state.paper_signals) + len(new_signals) + 1,
+                                            'symbol': sym,
+                                            'type': sig.pattern_type.upper() if sig.pattern_type else 'QML',
+                                            'direction': 'LONG' if sig.signal_type.value == 'buy' else 'SHORT',
+                                            'entry': sig.price or df['close'].iloc[-1],
+                                            'sl': sig.stop_loss or 0,
+                                            'tp': sig.take_profit or 0,
+                                            'validity': sig.validity_score or 0,
+                                            'status': 'PENDING',
+                                            'time': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                                            'signal_time': sig.timestamp.strftime('%Y-%m-%d %H:%M') if sig.timestamp else 'N/A'
+                                        }
+                                        new_signals.append(new_signal)
+
+                            if new_signals:
+                                st.session_state.paper_signals.extend(new_signals)
+                                st.session_state.paper_stats['total'] += len(new_signals)
+                                st.session_state.paper_stats['pending'] += len(new_signals)
+                                st.success(f"Found {len(new_signals)} real signals!")
+                                st.rerun()
+                            else:
+                                st.info("No signals found matching criteria")
+
+                        except Exception as e:
+                            st.error(f"Scan failed: {e}")
+                            logger.exception("Paper trading scan error")
+
         with col2:
-            st.markdown("**Paper Trading Stats**")
-            
+            st.caption("STATS")
+
             stats = st.session_state.paper_stats
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Total", stats['total'])
             c2.metric("Wins", stats['wins'])
             c3.metric("Losses", stats['losses'])
             c4.metric("Pending", stats['pending'])
-            
+
             # Win rate
             if stats['wins'] + stats['losses'] > 0:
                 win_rate = stats['wins'] / (stats['wins'] + stats['losses'])
                 st.progress(win_rate, text=f"Win Rate: {win_rate:.0%}")
-        
-        st.divider()
-        
+            else:
+                st.progress(0, text="Win Rate: --")
+
+            st.divider()
+
+            # Export button
+            if st.session_state.paper_signals:
+                export_df = pd.DataFrame([
+                    {k: v for k, v in s.items() if k != 'id'}
+                    for s in st.session_state.paper_signals
+                ])
+                csv = export_df.to_csv(index=False)
+                st.download_button("Export Log", csv, "paper_trades.csv", "text/csv",
+                                  use_container_width=True)
+
+        st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+
         # Active signals
-        st.subheader("📊 Active Signals")
-        
+        st.caption("ACTIVE SIGNALS")
+
         if st.session_state.paper_signals:
-            for i, signal in enumerate(st.session_state.paper_signals[-5:]):  # Show last 5
+            # Show in reverse order (newest first)
+            for i, signal in enumerate(reversed(st.session_state.paper_signals[-10:])):
+                real_idx = len(st.session_state.paper_signals) - 1 - i
                 status_color = "🟡" if signal['status'] == 'PENDING' else ("🟢" if signal['status'] == 'WIN' else "🔴")
-                
-                with st.expander(f"{status_color} {signal['symbol']} — {signal['type']} ({signal['status']})"):
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Entry", f"${signal['entry']:,.0f}")
-                    c2.metric("Stop Loss", f"${signal['sl']:,.0f}")
-                    c3.metric("Take Profit", f"${signal['tp']:,.0f}")
-                    
-                    st.caption(f"Signal time: {signal['time']}")
-                    
+                direction_icon = "📈" if signal.get('direction') == 'LONG' else "📉"
+
+                validity_pct = f"{signal.get('validity', 0):.0%}" if signal.get('validity') else "N/A"
+
+                with st.expander(f"{status_color} {direction_icon} **{signal['symbol']}** — {signal['type']} | Validity: {validity_pct} | {signal['status']}"):
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Entry", f"${signal['entry']:,.2f}" if signal['entry'] else "N/A")
+                    c2.metric("Stop Loss", f"${signal['sl']:,.2f}" if signal['sl'] else "N/A")
+                    c3.metric("Take Profit", f"${signal['tp']:,.2f}" if signal['tp'] else "N/A")
+
+                    # Calculate R:R
+                    if signal['entry'] and signal['sl'] and signal['tp']:
+                        risk = abs(signal['entry'] - signal['sl'])
+                        reward = abs(signal['tp'] - signal['entry'])
+                        rr = reward / risk if risk > 0 else 0
+                        c4.metric("R:R", f"{rr:.1f}")
+
+                    st.caption(f"Signal time: {signal.get('signal_time', 'N/A')} | Logged: {signal['time']}")
+
                     if signal['status'] == 'PENDING':
-                        col_a, col_b = st.columns(2)
-                        if col_a.button("✅ Mark Win", key=f"win_{i}"):
-                            signal['status'] = 'WIN'
+                        col_a, col_b, col_c = st.columns(3)
+                        if col_a.button("Win", key=f"paper_win_{real_idx}", use_container_width=True, type="primary"):
+                            st.session_state.paper_signals[real_idx]['status'] = 'WIN'
                             st.session_state.paper_stats['wins'] += 1
                             st.session_state.paper_stats['pending'] -= 1
                             st.rerun()
-                        if col_b.button("❌ Mark Loss", key=f"loss_{i}"):
-                            signal['status'] = 'LOSS'
+                        if col_b.button("Loss", key=f"paper_loss_{real_idx}", use_container_width=True):
+                            st.session_state.paper_signals[real_idx]['status'] = 'LOSS'
                             st.session_state.paper_stats['losses'] += 1
                             st.session_state.paper_stats['pending'] -= 1
                             st.rerun()
+                        if col_c.button("Remove", key=f"paper_rm_{real_idx}", use_container_width=True):
+                            st.session_state.paper_signals.pop(real_idx)
+                            st.session_state.paper_stats['total'] -= 1
+                            st.session_state.paper_stats['pending'] -= 1
+                            st.rerun()
         else:
-            st.info("No paper trading signals yet. Click 'Scan for Signals' to start.")
-        
+            paper_empty = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
+            paper_empty += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Click Scan for Live Signals to find patterns</div>'
+            paper_empty += '</div>'
+            st.markdown(paper_empty, unsafe_allow_html=True)
+
         # Clear all button
         if st.session_state.paper_signals:
-            if st.button("🗑️ Clear All Signals", type="secondary"):
+            st.markdown('<div style="height: 16px;"></div>', unsafe_allow_html=True)
+            if st.button("Clear All Signals", type="secondary", use_container_width=True):
                 st.session_state.paper_signals = []
                 st.session_state.paper_stats = {'total': 0, 'wins': 0, 'losses': 0, 'pending': 0}
                 st.rerun()
@@ -1584,36 +2028,50 @@ def render_neuro_lab():
 # SIDEBAR NAVIGATION
 # ============================================================================
 with st.sidebar:
-    st.title("📊 QML Trading")
-    st.caption("v3.0 | Premium Edition")
-    
-    st.divider()
-    
-    pages = {
-        "Dashboard": "📊",
-        "Scanner": "🔍",
-        "Analyzer": "📈",
-        "Backtest": "📉",
-        "Neuro-Lab": "🧠",
-        "VRD Reports": "📑",
-        "Settings": "⚙️"
-    }
-    
-    for page, icon in pages.items():
+    # Brand header - Professional style
+    st.markdown("""
+    <div style="padding: 16px 0 20px 0; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #2962ff, #5b8def);
+                 border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-weight: bold; font-size: 14px;">Q</span>
+            </div>
+            <div>
+                <div style="color: #ffffff; font-size: 1rem; font-weight: 600;">QML Trading</div>
+                <div style="color: #6b7280; font-size: 0.7rem;">Pattern Detection</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Navigation - Clean style
+    pages = ["Dashboard", "Scanner", "Analyzer", "Backtest", "Neuro-Lab", "Reports", "Settings"]
+
+    for page in pages:
         is_current = st.session_state.current_page == page
         btn_type = "primary" if is_current else "secondary"
-        
-        if st.button(f"{icon} {page}", key=f"nav_{page}", use_container_width=True, type=btn_type):
+
+        if st.button(page, key=f"nav_{page}", use_container_width=True, type=btn_type):
             st.session_state.current_page = page
             st.rerun()
-    
-    st.divider()
-    
-    # Status
-    st.caption("System Status")
+
+    st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
+
+    # System Status - Clean style
     engine = load_engine()
-    st.success("🟢 Online") if engine else st.error("🔴 Offline")
-    st.caption(f"Updated: {datetime.now().strftime('%H:%M:%S')}")
+    status_color = "#26a69a" if engine else "#ef5350"
+    status_text = "Online" if engine else "Offline"
+
+    # Build HTML using string concatenation
+    status_html = '<div style="background: #1a1f2e; border-radius: 8px; padding: 16px;">'
+    status_html += '<div style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">System Status</div>'
+    status_html += '<div style="display: flex; align-items: center; gap: 10px;">'
+    status_html += f'<div style="width: 8px; height: 8px; border-radius: 50%; background: {status_color};"></div>'
+    status_html += f'<span style="color: #ffffff; font-size: 0.85rem; font-weight: 500;">{status_text}</span>'
+    status_html += '</div>'
+    status_html += f'<div style="color: #6b7280; font-size: 0.75rem; margin-top: 12px;">Last sync: {datetime.now().strftime("%H:%M:%S")}</div>'
+    status_html += '</div>'
+    st.markdown(status_html, unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -1631,11 +2089,14 @@ elif page == "Backtest":
     render_backtest()
 elif page == "Neuro-Lab":
     render_neuro_lab()
-elif page == "VRD Reports":
+elif page in ("Reports", "VRD Reports"):
     render_vrd_reports()
 elif page == "Settings":
     render_settings()
 
-# Footer
-st.divider()
-st.caption("QML Trading System v3.0 | Powered by TradingView Lightweight Charts")
+# Footer - Professional style
+st.markdown("""
+<div style="margin-top: 60px; padding: 24px 0; border-top: 1px solid #1e222d; text-align: center;">
+    <div style="color: #6b7280; font-size: 0.75rem;">QML Trading System v4.0</div>
+</div>
+""", unsafe_allow_html=True)

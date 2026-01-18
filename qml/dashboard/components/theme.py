@@ -1,484 +1,412 @@
 """
-QML Dashboard Theme Module - Bloomberg Terminal Edition
-========================================================
-
-Professional trading terminal theme inspired by Bloomberg Terminal.
-Features pure black background, amber/orange accents, and monospace fonts.
-
-Color Reference:
-- Background: Pure black (#000000)
-- Accent: Bloomberg amber (#ff6600)
-- Positive: Terminal green (#00ff00)
-- Negative: Alert red (#ff3333)
+QML Dashboard Theme - JARVIS Style
+==================================
+Premium dark theme with cyan accents and proper dropdown styling.
 """
 
-from typing import Dict
-
-# ============================================================================
-# BLOOMBERG TERMINAL COLOR PALETTE
-# ============================================================================
-COLORS = {
-    # Backgrounds - Pure black to dark gray
-    "bg_terminal": "#000000",      # Pure black (main background)
-    "bg_panel": "#0a0a0a",         # Panel background
-    "bg_card": "#111111",          # Card background
-    "bg_elevated": "#1a1a1a",      # Elevated elements
-    "bg_hover": "#222222",         # Hover state
-    
-    # Borders
-    "border_default": "#333333",
-    "border_subtle": "#222222",
-    "border_accent": "#ff6600",
-    
-    # Text - High contrast
-    "text_primary": "#ffffff",     # Pure white
-    "text_secondary": "#888888",   # Gray
-    "text_muted": "#555555",       # Muted gray
-    "text_amber": "#ff9900",       # Amber (for highlights)
-    
-    # Bloomberg Accent Colors
-    "accent_amber": "#ff6600",     # Primary accent (Bloomberg orange)
-    "accent_gold": "#ffaa00",      # Secondary accent
-    "accent_yellow": "#ffcc00",    # Tertiary
-    
-    # Trading Colors
-    "bullish": "#00ff00",          # Terminal green
-    "bullish_muted": "rgba(0, 255, 0, 0.15)",
-    "bearish": "#ff3333",          # Alert red
-    "bearish_muted": "rgba(255, 51, 51, 0.15)",
-    "neutral": "#888888",          # Gray
-    
-    # Chart Colors
-    "chart_1": "#ff6600",          # Orange
-    "chart_2": "#00aaff",          # Blue
-    "chart_3": "#ffcc00",          # Yellow
-    "chart_4": "#ff3399",          # Pink
-    "chart_5": "#00ff88",          # Teal
-}
-
-# ============================================================================
-# GRADIENTS
-# ============================================================================
-GRADIENTS = {
-    "amber": "linear-gradient(90deg, #ff3300 0%, #ff6600 50%, #ffaa00 100%)",
-    "bullish": "linear-gradient(90deg, #00aa00 0%, #00ff00 100%)",
-    "bearish": "linear-gradient(90deg, #cc0000 0%, #ff3333 100%)",
-    "blue": "linear-gradient(90deg, #0066ff 0%, #00aaff 100%)",
-    "gold": "linear-gradient(135deg, #ff8c00 0%, #ffd700 100%)",
-}
-
-# ============================================================================
-# BLOOMBERG TERMINAL CSS
-# ============================================================================
 THEME_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* ========================================
-   ROOT VARIABLES - Bloomberg Terminal
-   ======================================== */
-:root {
-    --bg-terminal: #000000;
-    --bg-panel: #0a0a0a;
-    --bg-card: #111111;
-    --bg-elevated: #1a1a1a;
-    --bg-hover: #222222;
-    
-    --border-default: #333333;
-    --border-subtle: #222222;
-    --border-accent: #ff6600;
-    
-    --text-primary: #ffffff;
-    --text-secondary: #888888;
-    --text-muted: #555555;
-    --text-amber: #ff9900;
-    
-    --accent-amber: #ff6600;
-    --accent-gold: #ffaa00;
-    
-    --bullish: #00ff00;
-    --bearish: #ff3333;
-    
-    --font-mono: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
+    /* ========== CSS VARIABLES ========== */
+    :root {
+        --bg-deep: #0a0a0a;
+        --bg-primary: #0d0d0d;
+        --bg-card: #111111;
+        --bg-elevated: #1a1a1a;
+        --bg-hover: #222222;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-hover: rgba(255, 255, 255, 0.15);
+        --text-primary: #ffffff;
+        --text-secondary: #888888;
+        --text-muted: #555555;
+        --cyan: #00d4ff;
+        --orange: #ff6b35;
+        --pink: #ff3366;
+        --purple: #8b5cf6;
+        --emerald: #10b981;
+        --rose: #ef4444;
+    }
 
-/* ========================================
-   GLOBAL STYLES
-   ======================================== */
-html, body, .stApp {
-    background-color: var(--bg-terminal) !important;
-    font-family: var(--font-sans) !important;
-}
+    /* ========== ANIMATIONS ========== */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+    @keyframes glow {
+        0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.15); }
+        50% { box-shadow: 0 0 30px rgba(0, 212, 255, 0.3); }
+    }
 
-/* Hide Streamlit branding */
-#MainMenu, footer, header {visibility: hidden !important;}
-.stDeployButton {display: none !important;}
-div[data-testid="stDecoration"] {display: none !important;}
-div[data-testid="stToolbar"] {display: none !important;}
+    /* ========== GLOBAL STYLES ========== */
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        scrollbar-width: thin;
+        scrollbar-color: #333 #0a0a0a;
+    }
+    *::-webkit-scrollbar { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-track { background: #0a0a0a; }
+    *::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    *::-webkit-scrollbar-thumb:hover { background: #555; }
 
-/* All text defaults */
-.stApp, .stApp p, .stApp span, .stApp div, .stApp label {
-    color: var(--text-primary) !important;
-}
+    /* ========== APP BACKGROUND ========== */
+    .stApp {
+        background: #0a0a0a !important;
+    }
 
-/* ========================================
-   TYPOGRAPHY
-   ======================================== */
-h1, h2, h3 {
-    font-family: var(--font-sans) !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.5px !important;
-}
+    /* Hide Streamlit branding */
+    #MainMenu, footer, header { visibility: hidden; }
+    .stDeployButton { display: none; }
 
-h1 {
-    font-size: 1.75rem !important;
-    color: var(--text-amber) !important;
-    border-bottom: 2px solid var(--accent-amber) !important;
-    padding-bottom: 8px !important;
-}
+    /* Main content */
+    .main .block-container {
+        padding: 1.5rem 2rem;
+        max-width: 100%;
+    }
 
-/* ========================================
-   SIDEBAR - Terminal Style
-   ======================================== */
-section[data-testid="stSidebar"] {
-    background-color: var(--bg-panel) !important;
-    border-right: 1px solid var(--border-default) !important;
-}
+    /* ========== SIDEBAR ========== */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0d0d0d 0%, #0a0a0a 100%) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        background: transparent !important;
+    }
 
-section[data-testid="stSidebar"] > div {
-    background-color: var(--bg-panel) !important;
-}
+    /* ========== TYPOGRAPHY ========== */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', sans-serif !important;
+        color: #ffffff !important;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+    h1 { font-size: 1.75rem !important; }
+    h2 { font-size: 1.35rem !important; }
+    h3 { font-size: 1.1rem !important; }
 
-/* Sidebar title */
-section[data-testid="stSidebar"] h1 {
-    color: var(--accent-amber) !important;
-    font-size: 1.25rem !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 2px !important;
-}
+    p, span, div, label {
+        font-family: 'Inter', sans-serif;
+        color: #888888;
+    }
 
-/* ========================================
-   METRIC CARDS - Terminal Data Display
-   ======================================== */
-div[data-testid="stMetric"] {
-    background-color: var(--bg-card) !important;
-    border: 1px solid var(--border-default) !important;
-    border-left: 3px solid var(--accent-amber) !important;
-    border-radius: 0 !important;
-    padding: 16px 20px !important;
-}
+    /* Monospace for numbers */
+    .mono, [data-testid="stMetricValue"], code {
+        font-family: 'JetBrains Mono', monospace !important;
+    }
 
-div[data-testid="stMetric"] label {
-    color: var(--text-secondary) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 0.7rem !important;
-    font-weight: 500 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-}
+    /* ========== METRICS ========== */
+    [data-testid="stMetric"] {
+        background: #111111;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 16px;
+    }
+    [data-testid="stMetricValue"] {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 1.6rem !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #555555 !important;
+        text-transform: uppercase;
+        font-size: 0.65rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.1em;
+    }
+    [data-testid="stMetricDelta"] svg { display: none; }
 
-div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-    color: var(--text-amber) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 1.75rem !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.5px !important;
-}
+    /* ========== GLASSMORPHISM CARDS ========== */
+    .glass-card {
+        background: rgba(17, 17, 17, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 20px 24px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    }
+    .glass-card:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
 
-div[data-testid="stMetric"] [data-testid="stMetricDelta"] {
-    font-family: var(--font-mono) !important;
-    font-size: 0.75rem !important;
-}
+    .card-header {
+        color: #555555;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
 
-/* Positive delta */
-div[data-testid="stMetric"] [data-testid="stMetricDelta"] svg[fill="#09ab3b"] + span,
-div[data-testid="stMetric"] [data-testid="stMetricDelta"]:has(svg[fill="#09ab3b"]) {
-    color: var(--bullish) !important;
-}
+    /* ========== BUTTONS ========== */
+    .stButton > button {
+        background: linear-gradient(135deg, #00d4ff 0%, #8b5cf6 100%) !important;
+        color: #000000 !important;
+        border: none !important;
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 0.8rem !important;
+        padding: 12px 24px !important;
+        border-radius: 10px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 16px rgba(0, 212, 255, 0.25);
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 24px rgba(0, 212, 255, 0.35) !important;
+    }
 
-/* Negative delta */
-div[data-testid="stMetric"] [data-testid="stMetricDelta"] svg[fill="#ff2b2b"] + span,
-div[data-testid="stMetric"] [data-testid="stMetricDelta"]:has(svg[fill="#ff2b2b"]) {
-    color: var(--bearish) !important;
-}
+    /* Secondary buttons */
+    button[kind="secondary"], .stButton > button[kind="secondary"] {
+        background: transparent !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        color: #888888 !important;
+        box-shadow: none !important;
+    }
+    button[kind="secondary"]:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border-color: rgba(255, 255, 255, 0.25) !important;
+        color: #ffffff !important;
+    }
 
-/* ========================================
-   BUTTONS - Terminal Style
-   ======================================== */
-.stButton > button {
-    background: linear-gradient(180deg, #ff6600 0%, #cc5500 100%) !important;
-    color: #000000 !important;
-    border: none !important;
-    border-radius: 0 !important;
-    font-family: var(--font-mono) !important;
-    font-weight: 600 !important;
-    font-size: 0.85rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    padding: 0.6rem 1.5rem !important;
-    transition: all 0.15s ease !important;
-}
+    /* ========== TABS ========== */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #111111;
+        border-radius: 12px;
+        padding: 4px;
+        gap: 2px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: transparent !important;
+        color: #555555 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 10px 16px !important;
+        transition: all 0.2s ease !important;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background: #1a1a1a !important;
+        color: #888888 !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background: #1a1a1a !important;
+        color: #ffffff !important;
+    }
+    .stTabs [data-baseweb="tab-highlight"] { display: none !important; }
 
-.stButton > button:hover {
-    background: linear-gradient(180deg, #ff7700 0%, #ff6600 100%) !important;
-    box-shadow: 0 0 10px rgba(255, 102, 0, 0.5) !important;
-}
+    /* ========== INPUTS ========== */
+    .stSelectbox > div > div,
+    .stMultiSelect > div > div,
+    .stNumberInput > div > div > input,
+    .stTextInput > div > div > input {
+        background: #111111 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.85rem !important;
+        padding: 10px 14px !important;
+        transition: all 0.2s ease !important;
+    }
+    .stSelectbox > div > div:focus-within,
+    .stTextInput > div > div > input:focus {
+        border-color: #00d4ff !important;
+        box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.15) !important;
+    }
 
-.stButton > button[kind="secondary"] {
-    background: transparent !important;
-    border: 1px solid var(--accent-amber) !important;
-    color: var(--accent-amber) !important;
-}
+    /* Dropdown menus - CRITICAL for visibility */
+    [data-baseweb="popover"] {
+        background: #111111 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    }
+    [data-baseweb="menu"] { background: transparent !important; }
+    [data-baseweb="menu"] li {
+        color: #888888 !important;
+        font-size: 0.85rem !important;
+        padding: 10px 14px !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: #1a1a1a !important;
+        color: #ffffff !important;
+    }
 
-.stButton > button[kind="secondary"]:hover {
-    background: rgba(255, 102, 0, 0.1) !important;
-}
+    /* Ensure dropdown options are visible */
+    [data-baseweb="select"] [data-baseweb="tag"] {
+        background: #1a1a1a !important;
+        color: #ffffff !important;
+    }
 
-/* ========================================
-   INPUTS - Dark Terminal
-   ======================================== */
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input {
-    background-color: var(--bg-card) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: 0 !important;
-    color: var(--text-amber) !important;
-    font-family: var(--font-mono) !important;
-}
+    /* ========== SLIDERS ========== */
+    .stSlider > div > div > div {
+        background: #222222 !important;
+        height: 4px !important;
+    }
+    .stSlider > div > div > div > div {
+        background: linear-gradient(90deg, #00d4ff, #8b5cf6) !important;
+    }
+    .stSlider > div > div > div > div > div {
+        background: #ffffff !important;
+        border: 2px solid #00d4ff !important;
+        width: 14px !important;
+        height: 14px !important;
+    }
 
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus {
-    border-color: var(--accent-amber) !important;
-    box-shadow: 0 0 0 1px var(--accent-amber) !important;
-}
+    /* ========== PROGRESS BARS ========== */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #00d4ff, #8b5cf6) !important;
+        border-radius: 4px !important;
+    }
+    .stProgress > div {
+        background: #1a1a1a !important;
+        border-radius: 4px !important;
+    }
 
-.stSelectbox > div > div,
-.stMultiSelect > div {
-    background-color: var(--bg-card) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: 0 !important;
-}
+    /* ========== EXPANDERS ========== */
+    .streamlit-expanderHeader {
+        background: #111111 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    .streamlit-expanderHeader:hover {
+        background: #1a1a1a !important;
+        border-color: rgba(255, 255, 255, 0.15) !important;
+    }
+    .streamlit-expanderContent {
+        background: #0d0d0d !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-top: none !important;
+        border-radius: 0 0 10px 10px !important;
+    }
 
-/* Slider */
-.stSlider > div > div > div {
-    background-color: var(--border-default) !important;
-}
+    /* ========== DATA TABLES ========== */
+    .stDataFrame {
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 10px !important;
+        overflow: hidden;
+    }
+    .stDataFrame [data-testid="stDataFrameResizable"] {
+        background: #111111 !important;
+    }
+    .stDataFrame th {
+        background: #1a1a1a !important;
+        color: #555555 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.7rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.08em !important;
+    }
+    .stDataFrame td {
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.8rem !important;
+        color: #888888 !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+    }
 
-.stSlider > div > div > div > div {
-    background: var(--accent-amber) !important;
-}
+    /* ========== ALERTS ========== */
+    .stAlert {
+        background: #111111 !important;
+        border-radius: 10px !important;
+        border-left: 4px solid #00d4ff !important;
+    }
 
-/* ========================================
-   TABS - Terminal Navigation
-   ======================================== */
-.stTabs [data-baseweb="tab-list"] {
-    background-color: transparent !important;
-    border-bottom: 1px solid var(--border-default) !important;
-    gap: 0 !important;
-}
+    /* ========== CAPTIONS ========== */
+    .stCaption, [data-testid="stCaption"] {
+        color: #555555 !important;
+        font-size: 0.7rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.1em !important;
+        font-weight: 600 !important;
+    }
 
-.stTabs [data-baseweb="tab"] {
-    background-color: transparent !important;
-    color: var(--text-secondary) !important;
-    border-radius: 0 !important;
-    border: none !important;
-    border-bottom: 2px solid transparent !important;
-    font-family: var(--font-mono) !important;
-    font-size: 0.8rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    padding: 12px 20px !important;
-}
+    /* ========== CUSTOM COMPONENTS ========== */
 
-.stTabs [aria-selected="true"] {
-    background-color: transparent !important;
-    color: var(--accent-amber) !important;
-    border-bottom: 2px solid var(--accent-amber) !important;
-}
+    /* Metric Card */
+    .metric-card {
+        background: #111111;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
 
-.stTabs [data-baseweb="tab"]:hover {
-    color: var(--text-primary) !important;
-}
+    /* Trade Row */
+    .trade-row {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: all 0.2s ease;
+    }
+    .trade-row:hover {
+        background: #1a1a1a;
+    }
 
-/* ========================================
-   ALERTS - Terminal Notifications
-   ======================================== */
-.stSuccess, .stError, .stWarning, .stInfo {
-    border-radius: 0 !important;
-    font-family: var(--font-mono) !important;
-}
+    /* Badge */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .badge-success {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+    }
+    .badge-danger {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+    }
+    .badge-info {
+        background: rgba(0, 212, 255, 0.15);
+        color: #00d4ff;
+    }
 
-.stSuccess {
-    background-color: rgba(0, 255, 0, 0.1) !important;
-    border-left: 3px solid var(--bullish) !important;
-}
+    /* Live Indicator */
+    .live-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #10b981;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .live-dot {
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+    }
 
-.stError {
-    background-color: rgba(255, 51, 51, 0.1) !important;
-    border-left: 3px solid var(--bearish) !important;
-}
-
-.stWarning {
-    background-color: rgba(255, 170, 0, 0.1) !important;
-    border-left: 3px solid var(--accent-gold) !important;
-}
-
-.stInfo {
-    background-color: rgba(255, 102, 0, 0.1) !important;
-    border-left: 3px solid var(--accent-amber) !important;
-}
-
-/* ========================================
-   DATAFRAMES - Terminal Tables
-   ======================================== */
-.stDataFrame {
-    border: 1px solid var(--border-default) !important;
-    border-radius: 0 !important;
-}
-
-.stDataFrame [data-testid="stDataFrameContainer"] {
-    background-color: var(--bg-card) !important;
-}
-
-.stDataFrame th {
-    background-color: var(--bg-elevated) !important;
-    color: var(--text-amber) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 0.7rem !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    border-bottom: 1px solid var(--border-default) !important;
-}
-
-.stDataFrame td {
-    background-color: var(--bg-card) !important;
-    color: var(--text-primary) !important;
-    font-family: var(--font-mono) !important;
-    font-size: 0.85rem !important;
-    border-bottom: 1px solid var(--border-subtle) !important;
-}
-
-/* ========================================
-   PROGRESS BARS - Gradient Style
-   ======================================== */
-.stProgress > div > div > div {
-    background-color: var(--bg-elevated) !important;
-    border-radius: 0 !important;
-}
-
-.stProgress > div > div > div > div {
-    background: linear-gradient(90deg, #ff3300 0%, #ff6600 50%, #ffaa00 100%) !important;
-    border-radius: 0 !important;
-}
-
-/* ========================================
-   EXPANDERS
-   ======================================== */
-.streamlit-expanderHeader {
-    background-color: var(--bg-card) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: 0 !important;
-    color: var(--text-primary) !important;
-}
-
-/* ========================================
-   DIVIDERS
-   ======================================== */
-hr {
-    border-color: var(--border-default) !important;
-}
-
-/* ========================================
-   FORMS
-   ======================================== */
-[data-testid="stForm"] {
-    background-color: var(--bg-card) !important;
-    border: 1px solid var(--border-default) !important;
-    border-radius: 0 !important;
-    padding: 20px !important;
-}
-
-/* ========================================
-   CUSTOM COMPONENTS
-   ======================================== */
-.terminal-header {
-    color: var(--accent-amber);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 8px;
-}
-
-.data-value {
-    color: var(--text-amber);
-    font-family: var(--font-mono);
-    font-size: 1.5rem;
-    font-weight: 600;
-}
-
-.badge-bullish {
-    background-color: rgba(0, 255, 0, 0.15);
-    color: var(--bullish);
-    padding: 4px 12px;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.badge-bearish {
-    background-color: rgba(255, 51, 51, 0.15);
-    color: var(--bearish);
-    padding: 4px 12px;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-panel);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--border-default);
-    border-radius: 0;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-amber);
-}
-
-/* Custom line chart colors */
-.stLineChart {
-    background-color: var(--bg-card) !important;
-}
+    /* Focus ring */
+    *:focus-visible {
+        outline: 2px solid #00d4ff !important;
+        outline-offset: 2px;
+    }
 </style>
 """
-
-
-def get_theme_vars() -> Dict[str, str]:
-    """Get all theme variables as a dictionary."""
-    return {**COLORS, **GRADIENTS}
-
-
-def get_status_color(status: str) -> str:
-    """Get the appropriate color for a status."""
-    status_lower = status.lower()
-    if status_lower in ("bullish", "buy", "long", "success", "valid", "deploy"):
-        return COLORS["bullish"]
-    elif status_lower in ("bearish", "sell", "short", "error", "invalid", "reject"):
-        return COLORS["bearish"]
-    elif status_lower in ("caution", "warning", "neutral"):
-        return COLORS["accent_gold"]
-    else:
-        return COLORS["text_secondary"]
