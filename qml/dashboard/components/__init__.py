@@ -5,13 +5,11 @@ QML Dashboard Components Package
 Reusable UI components for the trading dashboard.
 
 Components:
-- theme: CSS variables and styling utilities
 - cards: Metric cards, pattern cards, stat boxes
 - backtest: Live backtest runner integration
 - visualizations: Sparklines, gauges, data grids
 """
 
-from .theme import THEME_CSS, get_theme_vars
 from .cards import (
     metric_card,
     pattern_card,
@@ -29,10 +27,8 @@ from .visualizations import (
 )
 
 __all__ = [
-    "THEME_CSS",
-    "get_theme_vars",
     "metric_card",
-    "pattern_card", 
+    "pattern_card",
     "stat_box",
     "verdict_banner",
     "BacktestRunner",
