@@ -22,8 +22,13 @@ from src.validation.walk_forward import (
     WalkForwardResult,
 )
 from src.validation.permutation import PermutationTest, PermutationResult
-from src.validation.monte_carlo import MonteCarloSimulator, MonteCarloResult
-from src.validation.bootstrap import BlockBootstrap, BootstrapResult
+from src.validation.monte_carlo import MonteCarloSim
+from src.validation.bootstrap import BootstrapResample
+from src.validation.base import ValidationResult
+
+# Type aliases for backward compatibility
+MonteCarloResult = ValidationResult
+BootstrapResult = ValidationResult
 
 
 @dataclass
@@ -142,20 +147,16 @@ class StrategyValidator:
         )
         
         # Statistical tests
-        self.permutation_test = PermutationTest(
-            n_permutations=self.config.n_permutations,
-            random_seed=self.config.random_seed
-        )
-        self.monte_carlo = MonteCarloSimulator(
-            n_simulations=self.config.n_monte_carlo,
-            kill_switch_threshold=self.config.kill_switch_threshold,
-            random_seed=self.config.random_seed
-        )
-        self.bootstrap = BlockBootstrap(
-            n_bootstrap=self.config.n_bootstrap,
-            block_size=self.config.bootstrap_block_size,
-            random_seed=self.config.random_seed
-        )
+        self.permutation_test = PermutationTest(config={
+            'n_permutations': self.config.n_permutations,
+        })
+        self.monte_carlo = MonteCarloSim(config={
+            'n_simulations': self.config.n_monte_carlo,
+            'risk_of_ruin_threshold': self.config.kill_switch_threshold,
+        })
+        self.bootstrap = BootstrapResample(config={
+            'n_resamples': self.config.n_bootstrap,
+        })
         
         logger.info(f"StrategyValidator initialized at {self.output_path}")
     
@@ -218,27 +219,30 @@ class StrategyValidator:
                     f"statistical analysis (need {self.config.min_trades_for_validity})"
                 )
             
+            # Convert returns to trades format expected by validators
+            trades_list = [{'pnl_pct': float(r)} for r in all_oos_returns]
+
             # 2. Permutation Testing
             logger.info("Phase 2: Permutation Testing")
             if len(all_oos_returns) >= 10:
-                perm_result = self.permutation_test.run(all_oos_returns)
+                perm_result = self.permutation_test.validate({}, trades=trades_list)
             else:
                 perm_result = None
                 logger.warning("Skipping permutation test: insufficient trades")
-            
+
             # 3. Monte Carlo Simulation
             logger.info("Phase 3: Monte Carlo Simulation")
             if len(all_oos_returns) >= 10:
-                mc_result = self.monte_carlo.run(all_oos_returns)
+                mc_result = self.monte_carlo.validate({}, trades=trades_list)
             else:
                 mc_result = None
                 logger.warning("Skipping Monte Carlo: insufficient trades")
-            
+
             # 4. Bootstrap Confidence Intervals
             logger.info("Phase 4: Bootstrap Confidence Intervals")
             if len(all_oos_returns) >= 10:
-                trades_df = pd.DataFrame({"pnl_pct": all_oos_returns})
-                boot_results = self.bootstrap.all_metrics_ci(trades_df)
+                boot_result = self.bootstrap.validate({}, trades=trades_list)
+                boot_results = {'sharpe': boot_result}
             else:
                 boot_results = {}
                 logger.warning("Skipping bootstrap: insufficient trades")
@@ -266,10 +270,10 @@ class StrategyValidator:
             
             statistical_results = {
                 "sharpe_p_value": report.sharpe_p_value,
-                "sharpe_percentile": perm_result.sharpe_percentile if perm_result else None,
-                "var_95": mc_result.var_95 if mc_result else None,
-                "var_99": mc_result.var_99 if mc_result else None,
-                "kill_switch_prob": mc_result.kill_switch_prob if mc_result else None,
+                "sharpe_percentile": perm_result.details.get('percentile_rank') if perm_result else None,
+                "var_95": mc_result.metrics.get('var_95') if mc_result else None,
+                "var_99": mc_result.metrics.get('var_99') if mc_result else None,
+                "kill_switch_prob": mc_result.metrics.get('risk_of_ruin') if mc_result else None,
             }
             
             self.tracker.finalize(
@@ -305,18 +309,21 @@ class StrategyValidator:
             ValidationReport with statistical results
         """
         logger.info(f"Running statistical validation on {len(trade_returns)} trades")
-        
+
         trade_returns = np.asarray(trade_returns).flatten()
-        
+
+        # Convert returns to trades format expected by validators
+        trades_list = [{'pnl_pct': float(r)} for r in trade_returns]
+
         # Permutation test
-        perm_result = self.permutation_test.run(trade_returns)
-        
+        perm_result = self.permutation_test.validate({}, trades=trades_list)
+
         # Monte Carlo
-        mc_result = self.monte_carlo.run(trade_returns)
-        
+        mc_result = self.monte_carlo.validate({}, trades=trades_list)
+
         # Bootstrap
-        trades_df = pd.DataFrame({"pnl_pct": trade_returns})
-        boot_results = self.bootstrap.all_metrics_ci(trades_df)
+        boot_result = self.bootstrap.validate({}, trades=trades_list)
+        boot_results = {'sharpe': boot_result}  # Wrap in dict for report generator
         
         # Generate report
         report = self._generate_report(
@@ -391,22 +398,25 @@ class StrategyValidator:
             report.total_trades = wf_result.total_oos_trades
         
         if perm_result:
-            report.sharpe_p_value = perm_result.sharpe_p_value
-            report.is_statistically_significant = perm_result.sharpe_p_value < self.config.significance_level
-        
+            # ValidationResult uses p_value, not sharpe_p_value
+            p_val = perm_result.p_value if perm_result.p_value is not None else 1.0
+            report.sharpe_p_value = p_val
+            report.is_statistically_significant = p_val < self.config.significance_level
+
         # Calculate confidence score (0-100)
         score_components = []
         reasons = []
-        
+
         # Component 1: Statistical significance (30%)
         if perm_result:
-            if perm_result.sharpe_p_value < 0.01:
+            p_val = perm_result.p_value if perm_result.p_value is not None else 1.0
+            if p_val < 0.01:
                 sig_score = 30
                 reasons.append("Strong statistical significance (p < 0.01)")
-            elif perm_result.sharpe_p_value < 0.05:
+            elif p_val < 0.05:
                 sig_score = 20
                 reasons.append("Statistical significance (p < 0.05)")
-            elif perm_result.sharpe_p_value < 0.10:
+            elif p_val < 0.10:
                 sig_score = 10
                 reasons.append("Marginal significance (p < 0.10)")
             else:
@@ -432,15 +442,17 @@ class StrategyValidator:
         
         # Component 3: Risk (VaR, kill switch) (25%)
         if mc_result:
-            if mc_result.kill_switch_prob < 0.05:
+            # ValidationResult stores metrics in metrics dict
+            risk_of_ruin = mc_result.metrics.get('risk_of_ruin', 0.5)
+            if risk_of_ruin < 0.05:
                 risk_score = 25
-                reasons.append(f"Low ruin probability ({mc_result.kill_switch_prob:.1%})")
-            elif mc_result.kill_switch_prob < 0.15:
+                reasons.append(f"Low ruin probability ({risk_of_ruin:.1%})")
+            elif risk_of_ruin < 0.15:
                 risk_score = 15
-                reasons.append(f"Moderate ruin probability ({mc_result.kill_switch_prob:.1%})")
+                reasons.append(f"Moderate ruin probability ({risk_of_ruin:.1%})")
             else:
                 risk_score = 5
-                reasons.append(f"High ruin probability ({mc_result.kill_switch_prob:.1%})")
+                reasons.append(f"High ruin probability ({risk_of_ruin:.1%})")
             score_components.append(risk_score)
         
         # Component 4: Parameter stability (20%)
@@ -496,9 +508,9 @@ class StrategyValidator:
         # Add Monte Carlo stats
         if report.monte_carlo:
             summary["monte_carlo"] = {
-                "var_95": report.monte_carlo.var_95,
-                "var_99": report.monte_carlo.var_99,
-                "kill_switch_prob": report.monte_carlo.kill_switch_prob,
+                "var_95": report.monte_carlo.metrics.get('var_95'),
+                "var_99": report.monte_carlo.metrics.get('var_99'),
+                "risk_of_ruin": report.monte_carlo.metrics.get('risk_of_ruin'),
             }
         
         report_path = report_dir / "validation_report.json"
@@ -543,26 +555,28 @@ class StrategyValidator:
         ])
         
         if report.permutation:
+            perm = report.permutation
             lines.extend([
                 "",
                 "-" * 70,
                 "STATISTICAL SIGNIFICANCE (Permutation Test)",
                 "-" * 70,
-                f"  Sharpe p-value: {report.permutation.sharpe_p_value:.4f}",
-                f"  Percentile: {report.permutation.sharpe_percentile:.1f}th",
+                f"  Sharpe p-value: {perm.p_value:.4f}",
+                f"  Percentile: {perm.details.get('percentile_rank', 0):.1f}th",
                 f"  Significant at 5%: {'YES' if report.is_statistically_significant else 'NO'}",
             ])
         
         if report.monte_carlo:
+            mc = report.monte_carlo.metrics
             lines.extend([
                 "",
                 "-" * 70,
                 "RISK ANALYSIS (Monte Carlo)",
                 "-" * 70,
-                f"  VaR 95%: {report.monte_carlo.var_95:.2f}%",
-                f"  VaR 99%: {report.monte_carlo.var_99:.2f}%",
-                f"  Expected Shortfall (CVaR 95%): {report.monte_carlo.expected_shortfall_95:.2f}%",
-                f"  Kill Switch Probability: {report.monte_carlo.kill_switch_prob:.2%}",
+                f"  VaR 95%: {mc.get('var_95', 0):.2f}%",
+                f"  VaR 99%: {mc.get('var_99', 0):.2f}%",
+                f"  Expected Shortfall (CVaR 95%): {mc.get('cvar_95', 0):.2f}%",
+                f"  Risk of Ruin: {mc.get('risk_of_ruin', 0):.2%}",
             ])
         
         if report.walk_forward:

@@ -1,19 +1,19 @@
 {
   "training_metrics": {
-    "accuracy": 0.4090909090909091,
-    "auc": 0.5470085470085471,
-    "n_train": 92,
-    "n_test": 22,
-    "positive_rate": 0.3157894736842105
+    "accuracy": 0.5714285714285714,
+    "auc": 0.55,
+    "n_train": 60,
+    "n_test": 14,
+    "positive_rate": 0.2972972972972973
   },
   "feature_importance": {
-    "entry_price": 168.0,
-    "sl_distance_pct": 188.0,
-    "tp_distance_pct": 30.0,
-    "risk_reward_ratio": 19.0,
-    "hour_of_day": 54.0,
-    "day_of_week": 73.0,
-    "pattern_type_bullish": 22.0,
+    "entry_price": 132.0,
+    "sl_distance_pct": 124.0,
+    "tp_distance_pct": 24.0,
+    "risk_reward_ratio": 4.0,
+    "hour_of_day": 68.0,
+    "day_of_week": 44.0,
+    "pattern_type_bullish": 17.0,
     "side_long": 6.0
   },
   "feature_names": [
@@ -31,5 +31,5 @@
     "pattern_type_bullish",
     "side_long"
   ],
-  "saved_at": "2026-01-07T15:40:05.719696"
+  "saved_at": "2026-01-18T01:08:54.101671"
 }
