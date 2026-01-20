@@ -22,6 +22,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+# sklearn for proper ML utilities
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score, accuracy_score
+
 # Try to import XGBoost
 try:
     import xgboost as xgb
@@ -191,17 +195,18 @@ class XGBoostPredictor:
         # Fill NaN values
         X = X.fillna(0)
         self._feature_names = X.columns.tolist()
-        
-        # Simple train/test split
-        n_test = int(len(X) * test_size)
-        indices = np.random.permutation(len(X))
-        test_idx = indices[:n_test]
-        train_idx = indices[n_test:]
-        
-        X_train = X.iloc[train_idx]
-        X_test = X.iloc[test_idx]
-        y_train = y[train_idx]
-        y_test = y[test_idx]
+
+        # Stratified train/test split using sklearn
+        # Handles edge cases and ensures reproducibility
+        try:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=test_size, random_state=42, stratify=y
+            )
+        except ValueError:
+            # Stratification fails if a class has too few samples
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=test_size, random_state=42
+            )
         
         # Default parameters
         params = {
@@ -232,19 +237,14 @@ class XGBoostPredictor:
         y_prob = self.model.predict(dtest)
         y_pred = (y_prob > 0.5).astype(int)
         
-        # Calculate metrics
-        accuracy = np.mean(y_pred == y_test)
-        
-        # AUC calculation
-        if len(np.unique(y_test)) > 1:
-            # Simple AUC approximation
-            pos_probs = y_prob[y_test == 1]
-            neg_probs = y_prob[y_test == 0]
-            if len(pos_probs) > 0 and len(neg_probs) > 0:
-                auc = np.mean([p > n for p in pos_probs for n in neg_probs])
-            else:
-                auc = 0.5
-        else:
+        # Calculate metrics using sklearn (exact, O(n log n))
+        accuracy = accuracy_score(y_test, y_pred)
+
+        # AUC calculation using sklearn
+        try:
+            auc = roc_auc_score(y_test, y_prob)
+        except ValueError:
+            # Only one class present in y_test
             auc = 0.5
         
         self.training_metrics = {
