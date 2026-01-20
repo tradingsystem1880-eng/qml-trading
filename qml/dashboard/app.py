@@ -33,6 +33,11 @@ from loguru import logger
 
 # Pattern visualization
 from src.dashboard.components.pattern_viz import add_pattern_to_figure
+from src.dashboard.components.tradingview_chart import render_pattern_chart as _render_pattern_chart
+
+def render_professional_chart(df, pattern=None, height=600, title="", key=None):
+    """Wrapper to adapt render_pattern_chart to expected signature."""
+    _render_pattern_chart(df, pattern=pattern, height=height, key=key)
 
 # ============================================================================
 # PAGE CONFIG
@@ -362,45 +367,29 @@ def render_dashboard():
     with chart_col:
         st.subheader("BTC/USDT - 4H")
 
-        # Load and display chart
+        # Load and display premium TradingView-style chart
         try:
             df = load_ohlcv_cached("BTC/USDT", "4h", 60)
             if df is not None and len(df) > 0:
                 df.columns = df.columns.str.lower()
-                df = df.tail(100)
+                df = df.tail(150)  # More bars for better context
 
-                fig = go.Figure()
-                fig.add_trace(go.Candlestick(
-                    x=df['time'],
-                    open=df['open'],
-                    high=df['high'],
-                    low=df['low'],
-                    close=df['close'],
-                    increasing=dict(line=dict(color='#3fb950'), fillcolor='#238636'),
-                    decreasing=dict(line=dict(color='#f85149'), fillcolor='#da3633'),
-                    name="Price"
-                ))
+                # Check if we have a recent pattern to display
+                pattern = None
+                if st.session_state.scan_results:
+                    for r in st.session_state.scan_results:
+                        if r.get('symbol') == "BTC/USDT":
+                            pattern = r.get('pattern_data', r)
+                            break
 
-                fig.update_layout(
+                # Use premium TradingView-style chart
+                render_professional_chart(
+                    df,
+                    pattern=pattern,
                     height=450,
-                    margin=dict(l=10, r=10, t=10, b=10),
-                    paper_bgcolor='#0e1117',
-                    plot_bgcolor='#0e1117',
-                    xaxis=dict(
-                        showgrid=False,
-                        rangeslider=dict(visible=False),
-                        color='#8b949e'
-                    ),
-                    yaxis=dict(
-                        showgrid=True,
-                        gridcolor='#21262d',
-                        side='right',
-                        color='#8b949e'
-                    ),
-                    showlegend=False,
+                    title="BTC/USDT • 4H",
+                    key="dashboard_main_chart"
                 )
-
-                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No chart data available. Run data fetch first.")
         except Exception as e:
@@ -459,6 +448,10 @@ def render_scanner():
         # Configuration panel
         st.caption("CONFIGURATION")
 
+        st.markdown("""
+        <div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px; padding: 16px; margin-bottom: 16px;">
+        """, unsafe_allow_html=True)
+
         symbols = st.multiselect(
             "Symbols",
             ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT", "ADA/USDT",
@@ -474,6 +467,8 @@ def render_scanner():
             days = st.slider("Days", 30, 365, 180, label_visibility="collapsed")
         with c3:
             min_validity = st.slider("Min Validity", 0.3, 1.0, 0.6, 0.05, label_visibility="collapsed")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         # Actions panel
@@ -516,27 +511,50 @@ def render_scanner():
             side_color = "#22c55e" if is_bullish else "#ef4444"
             validity_pct = r['validity'] * 100
 
-            # Build HTML using string concatenation (not multi-line f-strings which break Streamlit)
-            html = '<div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px; padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">'
-            html += '<div style="display: flex; align-items: center; gap: 16px;">'
-            html += f'<div style="color: {side_color}; font-family: JetBrains Mono, monospace; font-size: 0.7rem; font-weight: 600; padding: 4px 8px; background: {side_color}15; border-radius: 2px;">{side}</div>'
-            html += '<div>'
-            html += f'<div style="color: #e2e8f0; font-family: JetBrains Mono, monospace; font-size: 0.9rem; font-weight: 500;">{r["symbol"]}</div>'
-            html += f'<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.7rem;">{str(r["type"]).title()}</div>'
-            html += '</div></div>'
-            html += '<div style="display: flex; align-items: center; gap: 24px;">'
-            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">ENTRY</div><div style="color: #e2e8f0; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">${r["entry"]:,.2f}</div></div>'
-            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">SL</div><div style="color: #ef4444; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">${r["sl"]:,.2f}</div></div>'
-            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">TP</div><div style="color: #22c55e; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">${r["tp"]:,.2f}</div></div>'
-            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">R:R</div><div style="color: #8b9cb3; font-family: JetBrains Mono, monospace; font-size: 0.85rem;">{r["rr"]:.1f}</div></div>'
-            html += f'<div style="text-align: center;"><div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.6rem;">VALID</div><div style="color: #22c55e; font-family: JetBrains Mono, monospace; font-size: 0.85rem; font-weight: 500;">{validity_pct:.0f}%</div></div>'
-            html += '</div></div>'
-            st.markdown(html, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px;
+                 padding: 12px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="color: {side_color}; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+                         font-weight: 600; padding: 4px 8px; background: {side_color}15; border-radius: 2px;">{side}</div>
+                    <div>
+                        <div style="color: #e2e8f0; font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 500;">{r['symbol']}</div>
+                        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;">{str(r['type']).title()}</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 24px;">
+                    <div style="text-align: center;">
+                        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;">ENTRY</div>
+                        <div style="color: #e2e8f0; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">${r['entry']:,.2f}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;">SL</div>
+                        <div style="color: #ef4444; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">${r['sl']:,.2f}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;">TP</div>
+                        <div style="color: #22c55e; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">${r['tp']:,.2f}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;">R:R</div>
+                        <div style="color: #8b9cb3; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">{r['rr']:.1f}</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;">VALID</div>
+                        <div style="color: #22c55e; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 500;">{validity_pct:.0f}%</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     else:
-        empty_html = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
-        empty_html += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Select symbols and click SCAN to find patterns</div>'
-        empty_html += '</div>'
-        st.markdown(empty_html, unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px;
+             padding: 48px; text-align: center;">
+            <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+                Select symbols and click SCAN to find patterns
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -600,132 +618,354 @@ def render_analyzer():
                     c3.metric("Entry", f"${pattern.get('entry_price', 0):,.2f}")
                     c4.metric("R:R", f"{pattern.get('risk_reward', 0):.1f}")
                     
-                    # Simple mapper: Convert pattern fields to P1-P5 geometry for TradingView viz
-                    def map_to_geometry(pattern):
-                        """Simple mapper to convert pattern fields to P1-P5 format."""
+                    def find_swing_points(df, lookback=3):
+                        """Find swing highs and lows in price data."""
+                        swings = []
+                        time_col = 'time' if 'time' in df.columns else 'timestamp' if 'timestamp' in df.columns else None
+
+                        for i in range(lookback, len(df) - lookback):
+                            # Check for swing high
+                            is_swing_high = True
+                            for j in range(1, lookback + 1):
+                                if df.iloc[i]['high'] <= df.iloc[i-j]['high'] or df.iloc[i]['high'] <= df.iloc[i+j]['high']:
+                                    is_swing_high = False
+                                    break
+
+                            if is_swing_high:
+                                t = df.iloc[i][time_col] if time_col else df.index[i]
+                                swings.append({'time': pd.to_datetime(t), 'price': float(df.iloc[i]['high']), 'type': 'high', 'idx': i})
+
+                            # Check for swing low
+                            is_swing_low = True
+                            for j in range(1, lookback + 1):
+                                if df.iloc[i]['low'] >= df.iloc[i-j]['low'] or df.iloc[i]['low'] >= df.iloc[i+j]['low']:
+                                    is_swing_low = False
+                                    break
+
+                            if is_swing_low:
+                                t = df.iloc[i][time_col] if time_col else df.index[i]
+                                swings.append({'time': pd.to_datetime(t), 'price': float(df.iloc[i]['low']), 'type': 'low', 'idx': i})
+
+                        return sorted(swings, key=lambda x: x['time'])
+
+                    def map_to_geometry(pattern, df):
+                        """Find actual swing points from price data for pattern visualization."""
                         geo = {}
-                        
-                        # Map available fields to P1-P5
-                        # P1 = Left Shoulder, P3 = Head, P5 = Entry (Right Shoulder)
-                        if 'left_shoulder_time' in pattern and 'left_shoulder_price' in pattern:
-                            geo['p1_timestamp'] = pd.to_datetime(pattern['left_shoulder_time'])
-                            geo['p1_price'] = pattern['left_shoulder_price']
-                        
-                        if 'head_time' in pattern and 'head_price' in pattern:
-                            geo['p3_timestamp'] = pd.to_datetime(pattern['head_time'])
-                            geo['p3_price'] = pattern['head_price']
-                        
-                        if 'detection_time' in pattern and 'entry_price' in pattern:
-                            geo['p5_timestamp'] = pd.to_datetime(pattern['detection_time'])
-                            geo['p5_price'] = pattern['entry_price']
-                        
-                        # P2 and P4 - estimate if not available
-                        if 'p1_timestamp' in geo and 'p3_timestamp' in geo:
-                            # P2 is between P1 and P3
-                            p2_time = geo['p1_timestamp'] + (geo['p3_timestamp'] - geo['p1_timestamp']) / 2
-                            geo['p2_timestamp'] = p2_time
-                            geo['p2_price'] = (geo['p1_price'] + geo['p3_price']) / 2
-                        
-                        if 'p3_timestamp' in geo and 'p5_timestamp' in geo:
-                            # P4 is between P3 and P5
-                            p4_time = geo['p3_timestamp'] + (geo['p5_timestamp'] - geo['p3_timestamp']) / 2
-                            geo['p4_timestamp'] = p4_time
-                            geo['p4_price'] = (geo['p3_price'] + geo['p5_price']) / 2
-                        
+
+                        # Get the head time as anchor point
+                        head_time = pattern.get('head_time')
+                        detection_time = pattern.get('detection_time')
+
+                        if not head_time or not detection_time:
+                            # Fallback: just use what we have
+                            geo['entry_price'] = pattern.get('entry_price')
+                            geo['stop_loss_price'] = pattern.get('stop_loss')
+                            geo['take_profit_price'] = pattern.get('take_profit')
+                            return geo
+
+                        head_ts = pd.to_datetime(head_time)
+                        det_ts = pd.to_datetime(detection_time)
+
+                        # Make timezone-naive
+                        if head_ts.tzinfo:
+                            head_ts = head_ts.tz_localize(None)
+                        if det_ts.tzinfo:
+                            det_ts = det_ts.tz_localize(None)
+
+                        # Find all swing points in the data
+                        all_swings = find_swing_points(df, lookback=2)
+
+                        # Filter swings to pattern time window (head - 20 bars to detection + 5 bars)
+                        time_col = 'time' if 'time' in df.columns else 'timestamp'
+
+                        # Find swing closest to head time (this is P3 - the QM point)
+                        p3 = None
+                        min_diff = float('inf')
+                        for s in all_swings:
+                            s_time = s['time']
+                            if s_time.tzinfo:
+                                s_time = s_time.tz_localize(None)
+                            diff = abs((s_time - head_ts).total_seconds())
+                            if diff < min_diff:
+                                min_diff = diff
+                                p3 = s
+
+                        if not p3:
+                            geo['entry_price'] = pattern.get('entry_price')
+                            geo['stop_loss_price'] = pattern.get('stop_loss')
+                            geo['take_profit_price'] = pattern.get('take_profit')
+                            return geo
+
+                        is_bullish = 'bullish' in pattern.get('type', '').lower()
+
+                        # For bullish: P3 is a LOW, P1 is LOW before, P2/P4 are HIGHs
+                        # For bearish: P3 is a HIGH, P1 is HIGH before, P2/P4 are LOWs
+
+                        p3_time = p3['time']
+                        if p3_time.tzinfo:
+                            p3_time = p3_time.tz_localize(None)
+
+                        # Find swings BEFORE P3
+                        before_p3 = [s for s in all_swings if s['idx'] < p3['idx']]
+                        # Find swings AFTER P3
+                        after_p3 = [s for s in all_swings if s['idx'] > p3['idx']]
+
+                        if is_bullish:
+                            # P1 = swing LOW before P3, P2 = swing HIGH between P1 and P3
+                            # P4 = swing HIGH after P3, P5 = detection/entry
+                            lows_before = [s for s in before_p3 if s['type'] == 'low'][-2:] if before_p3 else []
+                            highs_before = [s for s in before_p3 if s['type'] == 'high'][-2:] if before_p3 else []
+                            highs_after = [s for s in after_p3 if s['type'] == 'high'][:2] if after_p3 else []
+
+                            # P1 = first significant low before head
+                            p1 = lows_before[-1] if lows_before else None
+                            # P2 = high between P1 and P3
+                            p2 = highs_before[-1] if highs_before else None
+                            # P4 = first high after P3
+                            p4 = highs_after[0] if highs_after else None
+                        else:
+                            # Bearish: P1 = HIGH, P2 = LOW, P3 = higher HIGH, P4 = LOW, P5 = entry
+                            highs_before = [s for s in before_p3 if s['type'] == 'high'][-2:] if before_p3 else []
+                            lows_before = [s for s in before_p3 if s['type'] == 'low'][-2:] if before_p3 else []
+                            lows_after = [s for s in after_p3 if s['type'] == 'low'][:2] if after_p3 else []
+
+                            p1 = highs_before[-1] if highs_before else None
+                            p2 = lows_before[-1] if lows_before else None
+                            p4 = lows_after[0] if lows_after else None
+
+                        # P5 = detection point
+                        p5_time = det_ts
+                        p5_price = float(pattern.get('entry_price', 0))
+
+                        # Build geometry - only include points we actually found
+                        if p1:
+                            geo['p1_timestamp'] = p1['time']
+                            geo['p1_price'] = p1['price']
+                        if p2:
+                            geo['p2_timestamp'] = p2['time']
+                            geo['p2_price'] = p2['price']
+                        if p3:
+                            geo['p3_timestamp'] = p3['time']
+                            geo['p3_price'] = p3['price']
+                        if p4:
+                            geo['p4_timestamp'] = p4['time']
+                            geo['p4_price'] = p4['price']
+                        if p5_time and p5_price:
+                            geo['p5_timestamp'] = p5_time
+                            geo['p5_price'] = p5_price
+
                         # Add trade levels
-                        geo['entry_price'] = pattern.get('entry_price') or pattern.get('entry')
-                        geo['stop_loss_price'] = pattern.get('stop_loss') or pattern.get('stop_loss_price')
-                        geo['take_profit_price'] = pattern.get('take_profit') or pattern.get('take_profit_price')
-                        
+                        geo['entry_price'] = pattern.get('entry_price')
+                        geo['stop_loss_price'] = pattern.get('stop_loss')
+                        geo['take_profit_price'] = pattern.get('take_profit')
+
+                        # === TREND VISUALIZATION ===
+                        # Find swing points BEFORE P1 to show the prior trend
+                        # For bullish QML: prior trend is DOWNTREND (LH/LL)
+                        # For bearish QML: prior trend is UPTREND (HH/HL)
+                        trend_swings = []
+
+                        if p1:
+                            # Get swings before P1
+                            swings_before_p1 = [s for s in all_swings if s['idx'] < p1['idx']]
+
+                            # Get last few highs and lows before P1
+                            highs_trend = [s for s in swings_before_p1 if s['type'] == 'high'][-4:]
+                            lows_trend = [s for s in swings_before_p1 if s['type'] == 'low'][-4:]
+
+                            if is_bullish:
+                                # Prior trend is DOWNTREND - look for Lower Highs (LH) and Lower Lows (LL)
+                                # Label highs
+                                for i, h in enumerate(highs_trend):
+                                    if i == 0:
+                                        label = "H"  # First high, reference
+                                    elif h['price'] < highs_trend[i-1]['price']:
+                                        label = "LH"  # Lower High
+                                    else:
+                                        label = "HH"  # Higher High (not expected in downtrend)
+                                    trend_swings.append({
+                                        'time': h['time'],
+                                        'price': h['price'],
+                                        'type': 'high',
+                                        'label': label
+                                    })
+                                # Label lows
+                                for i, l in enumerate(lows_trend):
+                                    if i == 0:
+                                        label = "L"  # First low, reference
+                                    elif l['price'] < lows_trend[i-1]['price']:
+                                        label = "LL"  # Lower Low
+                                    else:
+                                        label = "HL"  # Higher Low (not expected in downtrend)
+                                    trend_swings.append({
+                                        'time': l['time'],
+                                        'price': l['price'],
+                                        'type': 'low',
+                                        'label': label
+                                    })
+                            else:
+                                # Prior trend is UPTREND - look for Higher Highs (HH) and Higher Lows (HL)
+                                # Label highs
+                                for i, h in enumerate(highs_trend):
+                                    if i == 0:
+                                        label = "H"
+                                    elif h['price'] > highs_trend[i-1]['price']:
+                                        label = "HH"  # Higher High
+                                    else:
+                                        label = "LH"  # Lower High (not expected in uptrend)
+                                    trend_swings.append({
+                                        'time': h['time'],
+                                        'price': h['price'],
+                                        'type': 'high',
+                                        'label': label
+                                    })
+                                # Label lows
+                                for i, l in enumerate(lows_trend):
+                                    if i == 0:
+                                        label = "L"
+                                    elif l['price'] > lows_trend[i-1]['price']:
+                                        label = "HL"  # Higher Low
+                                    else:
+                                        label = "LL"  # Lower Low (not expected in uptrend)
+                                    trend_swings.append({
+                                        'time': l['time'],
+                                        'price': l['price'],
+                                        'type': 'low',
+                                        'label': label
+                                    })
+
+                            # Sort by time
+                            trend_swings.sort(key=lambda x: x['time'])
+
+                        geo['trend_swings'] = trend_swings
+
                         return geo
                     
-                    # TradingView-style chart with full pattern visualization
+                    # Premium TradingView-style chart with pattern visualization
                     try:
                         # Use cached data loading to prevent memory bloat
                         df = load_ohlcv_cached(symbol, timeframe, days)
-                        
+
                         if df is not None and len(df) > 0:
                             # Normalize column names
                             df.columns = df.columns.str.lower()
-                            
-                            # Get pattern detection time
-                            detection_idx = pattern.get('detection_index', len(df) - 1)
+
+                            # Find the display window centered on pattern
+                            # Get timestamp column name
+                            time_col = 'time' if 'time' in df.columns else 'timestamp' if 'timestamp' in df.columns else None
+
+                            # Calculate detection_idx from detection_time
+                            detection_time = pattern.get('detection_time')
+                            detection_idx = None
+
+                            if detection_time and time_col:
+                                det_ts = pd.to_datetime(detection_time)
+                                # Make timezone-naive for comparison
+                                if det_ts.tzinfo is not None:
+                                    det_ts = det_ts.tz_localize(None)
+
+                                # Find closest candle to detection time
+                                for idx in range(len(df)):
+                                    candle_time = df.iloc[idx][time_col]
+                                    if hasattr(candle_time, 'tz_localize'):
+                                        candle_time = pd.to_datetime(candle_time)
+                                        if candle_time.tzinfo is not None:
+                                            candle_time = candle_time.tz_localize(None)
+                                    if abs((candle_time - det_ts).total_seconds()) < 4 * 3600:  # Within 4 hours
+                                        detection_idx = idx
+                                        break
+
+                            if detection_idx is None:
+                                detection_idx = pattern.get('detection_index', len(df) - 1)
+
+                            # === FIND TRADE OUTCOME (TP or SL hit) ===
+                            entry_price = pattern.get('entry_price', 0)
+                            stop_loss = pattern.get('stop_loss', 0)
+                            take_profit = pattern.get('take_profit', 0)
+                            is_long = 'bullish' in ptype.lower()
+
+                            outcome_idx = None
+                            outcome_type = None  # 'tp' or 'sl'
+                            outcome_price = None
+                            outcome_time = None
+
+                            # Scan forward from entry to find TP or SL hit
+                            for scan_idx in range(detection_idx + 1, len(df)):
+                                candle = df.iloc[scan_idx]
+                                candle_high = candle['high']
+                                candle_low = candle['low']
+
+                                if is_long:
+                                    # Long: TP hit if high >= take_profit, SL hit if low <= stop_loss
+                                    if take_profit and candle_high >= take_profit:
+                                        outcome_idx = scan_idx
+                                        outcome_type = 'tp'
+                                        outcome_price = take_profit
+                                        outcome_time = candle[time_col]
+                                        break
+                                    elif stop_loss and candle_low <= stop_loss:
+                                        outcome_idx = scan_idx
+                                        outcome_type = 'sl'
+                                        outcome_price = stop_loss
+                                        outcome_time = candle[time_col]
+                                        break
+                                else:
+                                    # Short: TP hit if low <= take_profit, SL hit if high >= stop_loss
+                                    if take_profit and candle_low <= take_profit:
+                                        outcome_idx = scan_idx
+                                        outcome_type = 'tp'
+                                        outcome_price = take_profit
+                                        outcome_time = candle[time_col]
+                                        break
+                                    elif stop_loss and candle_high >= stop_loss:
+                                        outcome_idx = scan_idx
+                                        outcome_type = 'sl'
+                                        outcome_price = stop_loss
+                                        outcome_time = candle[time_col]
+                                        break
+
+                            # Calculate display window - ensure we can see the outcome
+                            # Include outcome candle + 10 bars margin, or at least 50 bars after entry
+                            if outcome_idx:
+                                bars_after = outcome_idx - detection_idx + 15  # 15 bars after outcome
+                            else:
+                                bars_after = 50  # Default if no outcome yet
+
                             start_idx = max(0, detection_idx - 150)
-                            end_idx = min(len(df), detection_idx + 50)
-                            display_df = df.iloc[start_idx:end_idx].copy()
-                            
-                            # Create base candlestick chart
-                            fig = go.Figure()
-                            fig.add_trace(go.Candlestick(
-                                x=display_df['time'],
-                                open=display_df['open'],
-                                high=display_df['high'],
-                                low=display_df['low'],
-                                close=display_df['close'],
-                                name="Price",
-                                increasing_line_color='#22C55E',
-                                decreasing_line_color='#EF4444',
-                                increasing_fillcolor='#22C55E',
-                                decreasing_fillcolor='#EF4444',
-                            ))
-                            
-                            # Try to map geometry and add TradingView visualization
-                            try:
-                                # Map pattern fields to P1-P5 geometry
-                                mapped_geo = map_to_geometry(pattern)
-                                
-                                # Merge mapped geometry with original pattern
-                                full_pattern = {**pattern, **mapped_geo}
-                                
-                                # Create pattern_record for visualization
-                                pattern_record = {
-                                    'pattern_type': ptype,
-                                    'ml_confidence': pattern.get('ml_confidence', pattern.get('validity', 0.7)),
-                                    'features_json': full_pattern
+                            end_idx = min(len(df), detection_idx + max(bars_after, 50))
+                            display_df = df.iloc[start_idx:end_idx].copy().reset_index(drop=True)
+
+                            # Map pattern fields to P1-P5 geometry for premium chart
+                            mapped_geo = map_to_geometry(pattern, display_df)
+                            full_pattern = {**pattern, **mapped_geo}
+
+                            # Add pattern type for chart direction
+                            full_pattern['pattern_type'] = ptype
+
+                            # Add trade outcome for position box
+                            if outcome_idx and outcome_time:
+                                full_pattern['position_box'] = {
+                                    'entry_time': pd.to_datetime(pattern.get('detection_time')),
+                                    'entry_price': entry_price,
+                                    'exit_time': pd.to_datetime(outcome_time),
+                                    'exit_price': outcome_price,
+                                    'outcome': outcome_type,  # 'tp' or 'sl'
+                                    'is_long': is_long,
+                                    'stop_loss': stop_loss,
+                                    'take_profit': take_profit
                                 }
-                                
-                                # Add TradingView-style pattern visualization
-                                fig = add_pattern_to_figure(fig, pattern_record, display_df)
-                                st.success("✅ TradingView-style chart with pattern labels")
-                            
-                            except Exception as viz_error:
-                                # Fallback: Just show Entry/SL/TP lines
-                                logger.warning(f"TradingView viz failed, using basic markers: {viz_error}")
-                                st.info("ℹ️ Showing basic trade levels")
-                                
-                                entry = pattern.get('entry_price') or pattern.get('entry')
-                                sl = pattern.get('stop_loss_price') or pattern.get('stop_loss')
-                                tp = pattern.get('take_profit_price') or pattern.get('take_profit')
-                                
-                                if entry:
-                                    fig.add_hline(y=entry, line_dash="dot", line_color="#2962FF", 
-                                                line_width=2, annotation_text="ENTRY")
-                                if sl:
-                                    fig.add_hline(y=sl, line_dash="dot", line_color="#FF5252", 
-                                                line_width=2, annotation_text="SL")
-                                if tp:
-                                    fig.add_hline(y=tp, line_dash="dot", line_color="#00E676", 
-                                                line_width=2, annotation_text="TP")
-                            
-                            # Update layout
-                            fig.update_layout(
-                                title=dict(
-                                    text=f"<b>{symbol}</b> — {ptype.upper()} (Validity: {validity:.0%})",
-                                    x=0.5,
-                                    xanchor='center'
-                                ),
-                                template="plotly_dark",
-                                paper_bgcolor="#0F172A",
-                                plot_bgcolor="#0F172A",
-                                font=dict(color="#E2E8F0"),
-                                height=700,
-                                xaxis_rangeslider_visible=False,
+
+                            # Use premium TradingView-style chart with position boxes
+                            render_professional_chart(
+                                display_df,
+                                pattern=full_pattern,
+                                height=600,
+                                title=f"{symbol} • {timeframe.upper()} — {ptype.upper()} ({validity:.0%})",
+                                key=f"analyzer_chart_{i}"
                             )
-                            
-                            st.plotly_chart(fig, use_container_width=True)
                         else:
                             st.error("Could not load chart data")
-                    
+
                     except Exception as e:
                         st.error(f"Chart error: {e}")
                         logger.error(f"Chart error: {e}", exc_info=True)
@@ -773,16 +1013,22 @@ def render_vrd_reports():
     confidence = report_data.get("confidence_score", 50)
     verdict_color = "#22c55e" if verdict == "DEPLOY" else "#eab308" if verdict == "CAUTION" else "#ef4444"
 
-    # Build HTML using string concatenation (not multi-line f-strings)
-    banner_html = '<div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px; padding: 20px 24px; margin-bottom: 24px;">'
-    banner_html += '<div style="display: flex; justify-content: space-between; align-items: center;">'
-    banner_html += '<div>'
-    banner_html += f'<span style="background: {verdict_color}; color: #0a0f14; padding: 4px 12px; border-radius: 2px; font-family: JetBrains Mono, monospace; font-size: 0.75rem; font-weight: 700;">{verdict}</span>'
-    banner_html += f'<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.75rem; margin-top: 8px;">Confidence: {confidence}/100</div>'
-    banner_html += '</div>'
-    banner_html += f'<div style="color: {verdict_color}; font-family: JetBrains Mono, monospace; font-size: 2.5rem; font-weight: 600;">{confidence}%</div>'
-    banner_html += '</div></div>'
-    st.markdown(banner_html, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background: #111820; border: 1px solid #1e2d3d; border-radius: 4px;
+         padding: 20px 24px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="background: {verdict_color}; color: #0a0f14; padding: 4px 12px;
+                      border-radius: 2px; font-family: 'JetBrains Mono', monospace;
+                      font-size: 0.75rem; font-weight: 700;">{verdict}</span>
+                <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace;
+                      font-size: 0.75rem; margin-top: 8px;">Confidence: {confidence}/100</div>
+            </div>
+            <div style="color: {verdict_color}; font-family: 'JetBrains Mono', monospace;
+                  font-size: 2.5rem; font-weight: 600;">{confidence}%</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Key Metrics Row
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1522,10 +1768,14 @@ def render_backtest():
                 "text/csv"
             )
     else:
-        empty_html = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
-        empty_html += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Configure parameters and click RUN BACKTEST</div>'
-        empty_html += '</div>'
-        st.markdown(empty_html, unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px;
+             padding: 48px; text-align: center;">
+            <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+                Configure parameters and click RUN BACKTEST
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -1659,52 +1909,27 @@ def render_neuro_lab():
                                 
                                 if has_geometry:
                                     # Load OHLCV data for the pattern
-                                    # Use cached OHLCV loading
-                                    # Get timeframe and date range from pattern
                                     timeframe = p.get('timeframe', '4h')
-                                    # Use cached function to prevent reloading data
                                     df = load_ohlcv_cached(symbol, timeframe, 180)
-                                    
+
                                     if df is not None and len(df) > 0:
                                         df.columns = df.columns.str.lower()
-                                        
-                                        # Create chart
-                                        fig = go.Figure()
-                                        fig.add_trace(go.Candlestick(
-                                            x=df['time'],
-                                            open=df['open'],
-                                            high=df['high'],
-                                            low=df['low'],
-                                            close=df['close'],
-                                            name="Price",
-                                            increasing_line_color='#22C55E',
-                                            decreasing_line_color='#EF4444',
-                                        ))
-                                        
-                                        # Add pattern visualization
-                                        pattern_record = {
-                                            'pattern_type': ptype,
-                                            'ml_confidence': p.get('ml_confidence', validity),
-                                            'features_json': features
-                                        }
-                                        
-                                        fig = add_pattern_to_figure(fig, pattern_record, df)
-                                        
-                                        # Update layout
-                                        fig.update_layout(
-                                            title=f"{symbol} - {ptype.upper()}",
-                                            template="plotly_dark",
-                                            paper_bgcolor="#0F172A",
-                                            plot_bgcolor="#0F172A",
+
+                                        # Prepare pattern data for premium chart
+                                        pattern_data = {**features, 'pattern_type': ptype}
+
+                                        # Use premium TradingView-style chart
+                                        render_professional_chart(
+                                            df,
+                                            pattern=pattern_data,
                                             height=500,
-                                            xaxis_rangeslider_visible=False,
+                                            title=f"{symbol} • {ptype.upper()} ({validity:.0%})",
+                                            key=f"neuro_pattern_{idx}"
                                         )
-                                        
-                                        st.plotly_chart(fig, use_container_width=True)
                                     else:
                                         st.warning("Could not load chart data")
                                 else:
-                                    st.info("ℹ️ Pattern missing visualization geometry - showing details only")
+                                    st.info("Pattern missing visualization geometry - showing details only")
                                 
                                 # Pattern details
                                 col1, col2, col3 = st.columns(3)
@@ -1846,10 +2071,14 @@ def render_neuro_lab():
                     else:
                         st.error("Low confidence - Skip this pattern")
         else:
-            neuro_empty = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
-            neuro_empty += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Run Quick Scan from Dashboard to see predictions</div>'
-            neuro_empty += '</div>'
-            st.markdown(neuro_empty, unsafe_allow_html=True)
+            st.markdown("""
+            <div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px;
+                 padding: 48px; text-align: center;">
+                <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+                    Run Quick Scan from Dashboard to see predictions
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     with tab5:
         st.caption("PAPER TRADING")
@@ -2010,10 +2239,14 @@ def render_neuro_lab():
                             st.session_state.paper_stats['pending'] -= 1
                             st.rerun()
         else:
-            paper_empty = '<div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px; padding: 48px; text-align: center;">'
-            paper_empty += '<div style="color: #5a6a7a; font-family: JetBrains Mono, monospace; font-size: 0.8rem;">Click Scan for Live Signals to find patterns</div>'
-            paper_empty += '</div>'
-            st.markdown(paper_empty, unsafe_allow_html=True)
+            st.markdown("""
+            <div style="background: #111820; border: 1px dashed #1e2d3d; border-radius: 4px;
+                 padding: 48px; text-align: center;">
+                <div style="color: #5a6a7a; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+                    Click Scan for Live Signals to find patterns
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         # Clear all button
         if st.session_state.paper_signals:
@@ -2062,16 +2295,18 @@ with st.sidebar:
     status_color = "#26a69a" if engine else "#ef5350"
     status_text = "Online" if engine else "Offline"
 
-    # Build HTML using string concatenation
-    status_html = '<div style="background: #1a1f2e; border-radius: 8px; padding: 16px;">'
-    status_html += '<div style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">System Status</div>'
-    status_html += '<div style="display: flex; align-items: center; gap: 10px;">'
-    status_html += f'<div style="width: 8px; height: 8px; border-radius: 50%; background: {status_color};"></div>'
-    status_html += f'<span style="color: #ffffff; font-size: 0.85rem; font-weight: 500;">{status_text}</span>'
-    status_html += '</div>'
-    status_html += f'<div style="color: #6b7280; font-size: 0.75rem; margin-top: 12px;">Last sync: {datetime.now().strftime("%H:%M:%S")}</div>'
-    status_html += '</div>'
-    st.markdown(status_html, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background: #1a1f2e; border-radius: 8px; padding: 16px;">
+        <div style="color: #6b7280; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">System Status</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: {status_color};"></div>
+            <span style="color: #ffffff; font-size: 0.85rem; font-weight: 500;">{status_text}</span>
+        </div>
+        <div style="color: #6b7280; font-size: 0.75rem; margin-top: 12px;">
+            Last sync: {datetime.now().strftime('%H:%M:%S')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ============================================================================

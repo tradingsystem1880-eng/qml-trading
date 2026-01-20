@@ -10,6 +10,7 @@ Features:
 - QM Zone highlighting
 """
 
+import json
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -66,63 +67,296 @@ def _generate_chart_html(
     # Prepare pattern lines and markers if pattern provided
     pattern_lines_js = ""
     trade_zones_js = ""
-    
+    swing_points_js = ""
+    trend_line_js = ""
+
     if pattern:
-        # Extract pattern points (simplified - assume we have P1-P5 coordinates)
-        # In reality, you'd extract from pattern.left_shoulder_time/price, head_time/price, etc.
-        trading_levels = pattern.get('trading_levels')
-        
-        if trading_levels:
-            entry = trading_levels.get('entry', 0)
-            stop_loss = trading_levels.get('stop_loss', 0)
-            tp1 = trading_levels.get('take_profit_1', 0)
-            tp2 = trading_levels.get('take_profit_2', 0)
-            
+        # Extract trend line data (swings before the pattern showing prior trend)
+        trend_swings = pattern.get('trend_swings', [])
+        if trend_swings and len(trend_swings) >= 2:
+            trend_line_data = []
+            trend_markers = []
+
+            for ts in trend_swings:
+                time_val = ts.get('time')
+                if hasattr(time_val, 'timestamp'):
+                    time_val = int(time_val.timestamp())
+                elif isinstance(time_val, str):
+                    time_val = int(pd.to_datetime(time_val).timestamp())
+
+                trend_line_data.append({
+                    'time': time_val,
+                    'value': float(ts.get('price', 0))
+                })
+
+                # Add marker with HH/HL/LH/LL label
+                label = ts.get('label', '')
+                trend_markers.append({
+                    'time': time_val,
+                    'position': 'aboveBar' if ts.get('type') == 'high' else 'belowBar',
+                    'color': '#f59e0b',  # Amber color for trend
+                    'shape': 'arrowDown' if ts.get('type') == 'high' else 'arrowUp',
+                    'text': label
+                })
+
+            # Sort by time
+            trend_line_data.sort(key=lambda x: x['time'])
+            trend_markers.sort(key=lambda x: x['time'])
+
+            trend_line_js = f"""
+            // Prior trend line (amber/orange showing trend before pattern)
+            const trendLine = chart.addLineSeries({{
+                color: '#f59e0b',
+                lineWidth: 2,
+                lineStyle: LightweightCharts.LineStyle.Solid,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+            trendLine.setData({json.dumps(trend_line_data)});
+            """
+        # Extract trading levels - support both nested and flat formats
+        trading_levels = pattern.get('trading_levels', {})
+
+        # Flat format (from app.py): entry_price, stop_loss_price, take_profit_price
+        entry = trading_levels.get('entry') or pattern.get('entry_price') or pattern.get('entry') or 0
+        stop_loss = trading_levels.get('stop_loss') or pattern.get('stop_loss_price') or pattern.get('stop_loss') or 0
+        tp1 = trading_levels.get('take_profit_1') or pattern.get('take_profit_price') or pattern.get('take_profit') or 0
+        tp2 = trading_levels.get('take_profit_2') or pattern.get('take_profit_2') or 0
+
+        if entry and stop_loss:
             # Trading level lines
             trade_zones_js = f"""
             // Entry line
-            const entryLine = {{
+            series.createPriceLine({{
                 price: {entry},
                 color: '#0ea5e9',
                 lineWidth: 2,
-                lineStyle: 0, // Solid
+                lineStyle: 0,
                 axisLabelVisible: true,
                 title: 'Entry'
-            }};
-            series.createPriceLine(entryLine);
-            
+            }});
+
             // Stop Loss line
-            const slLine = {{
+            series.createPriceLine({{
                 price: {stop_loss},
                 color: '#ef4444',
                 lineWidth: 2,
-                lineStyle: 2, // Dashed
+                lineStyle: 2,
                 axisLabelVisible: true,
                 title: 'SL'
-            }};
-            series.createPriceLine(slLine);
-            
+            }});
+            """
+
+            if tp1:
+                trade_zones_js += f"""
             // Take Profit 1
-            const tp1Line = {{
+            series.createPriceLine({{
                 price: {tp1},
                 color: '#22c55e',
                 lineWidth: 2,
-                lineStyle: 1, // Dotted
+                lineStyle: 1,
                 axisLabelVisible: true,
                 title: 'TP1'
-            }};
-            series.createPriceLine(tp1Line);
-            
+            }});
+            """
+
+            if tp2:
+                trade_zones_js += f"""
             // Take Profit 2
-            const tp2Line = {{
+            series.createPriceLine({{
                 price: {tp2},
                 color: '#10b981',
                 lineWidth: 2,
                 lineStyle: 1,
                 axisLabelVisible: true,
                 title: 'TP2'
-            }};
-            series.createPriceLine(tp2Line);
+            }});
+            """
+
+        # === POSITION BOX (Trade outcome visualization) ===
+        position_box_js = ""
+        position_box = pattern.get('position_box')
+        if position_box:
+            entry_time = position_box.get('entry_time')
+            exit_time = position_box.get('exit_time')
+            entry_price = position_box.get('entry_price', 0)
+            exit_price = position_box.get('exit_price', 0)
+            outcome = position_box.get('outcome', '')  # 'tp' or 'sl'
+            is_long = position_box.get('is_long', True)
+            sl_price = position_box.get('stop_loss', 0)
+            tp_price = position_box.get('take_profit', 0)
+
+            # Convert times to timestamps
+            if hasattr(entry_time, 'timestamp'):
+                entry_ts = int(entry_time.timestamp())
+            else:
+                entry_ts = int(pd.to_datetime(entry_time).timestamp())
+
+            if hasattr(exit_time, 'timestamp'):
+                exit_ts = int(exit_time.timestamp())
+            else:
+                exit_ts = int(pd.to_datetime(exit_time).timestamp())
+
+            # Colors based on outcome
+            if outcome == 'tp':
+                border_color = '#22c55e'
+                result_text = 'WIN'
+            else:
+                border_color = '#ef4444'
+                result_text = 'LOSS'
+
+            # Use baseline series for proper bounded zones
+            # For LONG: Green above entry (profit), Red below entry (drawdown/risk)
+            # For SHORT: Red above entry (drawdown/risk), Green below entry (profit)
+
+            position_box_js = f"""
+            // Position Box - Profit zone (green) and Risk zone (red)
+            // Using baseline series with entry as the baseline
+
+            const positionZone = chart.addBaselineSeries({{
+                baseValue: {{ type: 'price', price: {entry_price} }},
+                topLineColor: 'rgba(34, 197, 94, 0.8)',
+                topFillColor1: 'rgba(34, 197, 94, 0.3)',
+                topFillColor2: 'rgba(34, 197, 94, 0.1)',
+                bottomLineColor: 'rgba(239, 68, 68, 0.8)',
+                bottomFillColor1: 'rgba(239, 68, 68, 0.1)',
+                bottomFillColor2: 'rgba(239, 68, 68, 0.3)',
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+
+            // Create position zone data - goes from entry to exit showing price path
+            // We'll create intermediate points to show the actual price movement
+            positionZone.setData([
+                {{ time: {entry_ts}, value: {entry_price} }},
+                {{ time: {exit_ts}, value: {exit_price} }}
+            ]);
+
+            // TP level line (bounded)
+            const tpLevelLine = chart.addLineSeries({{
+                color: 'rgba(34, 197, 94, 0.6)',
+                lineWidth: 1,
+                lineStyle: LightweightCharts.LineStyle.Dotted,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+            tpLevelLine.setData([
+                {{ time: {entry_ts}, value: {tp_price} }},
+                {{ time: {exit_ts}, value: {tp_price} }}
+            ]);
+
+            // SL level line (bounded)
+            const slLevelLine = chart.addLineSeries({{
+                color: 'rgba(239, 68, 68, 0.6)',
+                lineWidth: 1,
+                lineStyle: LightweightCharts.LineStyle.Dotted,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+            slLevelLine.setData([
+                {{ time: {entry_ts}, value: {sl_price} }},
+                {{ time: {exit_ts}, value: {sl_price} }}
+            ]);
+
+            // Entry level line
+            const entryLevelLine = chart.addLineSeries({{
+                color: 'rgba(14, 165, 233, 0.6)',
+                lineWidth: 1,
+                lineStyle: LightweightCharts.LineStyle.Solid,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+            entryLevelLine.setData([
+                {{ time: {entry_ts}, value: {entry_price} }},
+                {{ time: {exit_ts}, value: {entry_price} }}
+            ]);
+
+            // Entry to Exit line (shows the actual trade path)
+            const tradePath = chart.addLineSeries({{
+                color: '{border_color}',
+                lineWidth: 3,
+                lineStyle: LightweightCharts.LineStyle.Solid,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+            tradePath.setData([
+                {{ time: {entry_ts}, value: {entry_price} }},
+                {{ time: {exit_ts}, value: {exit_price} }}
+            ]);
+
+            // Add exit marker
+            series.setMarkers([
+                ...series.markers() || [],
+                {{
+                    time: {exit_ts},
+                    position: '{"aboveBar" if (outcome == "tp" and is_long) or (outcome == "sl" and not is_long) else "belowBar"}',
+                    color: '{border_color}',
+                    shape: '{"arrowUp" if outcome == "tp" else "arrowDown"}',
+                    text: '{result_text}'
+                }}
+            ]);
+            """
+
+        # Extract swing points P1-P5 for pattern line
+        swing_points = []
+        for i in range(1, 6):
+            time_key = f'p{i}_timestamp'
+            price_key = f'p{i}_price'
+            if time_key in pattern and price_key in pattern:
+                time_val = pattern[time_key]
+                # Convert timestamp
+                if hasattr(time_val, 'timestamp'):
+                    time_val = int(time_val.timestamp())
+                elif isinstance(time_val, str):
+                    time_val = int(pd.to_datetime(time_val).timestamp())
+                swing_points.append({'time': time_val, 'value': float(pattern[price_key]), 'label': str(i)})
+
+        if len(swing_points) >= 2:
+            # Sort swing points by time - this is the chronological order
+            swing_points_sorted = sorted(swing_points, key=lambda x: x['time'])
+
+            # Line data for the pattern connection
+            line_data = [{'time': p['time'], 'value': p['value']} for p in swing_points_sorted]
+
+            # Create markers with sequential labels 1-5 in time order
+            markers = []
+            for i, p in enumerate(swing_points_sorted):
+                # Determine if this is a local high or low
+                is_high = False
+                if i > 0 and i < len(swing_points_sorted) - 1:
+                    is_high = p['value'] > swing_points_sorted[i-1]['value'] and p['value'] > swing_points_sorted[i+1]['value']
+                elif i == 0:
+                    is_high = len(swing_points_sorted) > 1 and p['value'] > swing_points_sorted[1]['value']
+                else:
+                    is_high = p['value'] > swing_points_sorted[-2]['value']
+
+                markers.append({
+                    'time': p['time'],
+                    'position': 'aboveBar' if is_high else 'belowBar',
+                    'color': '#2962FF',
+                    'shape': 'circle',
+                    'text': str(i + 1)  # Sequential 1, 2, 3, 4, 5 in time order
+                })
+
+            swing_points_js = f"""
+            // Pattern connection line (blue dashed zigzag)
+            const patternLine = chart.addLineSeries({{
+                color: '#2962FF',
+                lineWidth: 2,
+                lineStyle: LightweightCharts.LineStyle.Dashed,
+                crosshairMarkerVisible: false,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            }});
+            patternLine.setData({json.dumps(line_data)});
+
+            // Add numbered markers (1-5 in chronological order)
+            series.setMarkers({json.dumps(markers)});
             """
     
     html = f"""
@@ -187,7 +421,13 @@ def _generate_chart_html(
             series.setData(candleData);
             
             {trade_zones_js}
-            
+
+            {position_box_js}
+
+            {trend_line_js}
+
+            {swing_points_js}
+
             // Volume series (if enabled)
             {'const volumeSeries = chart.addHistogramSeries({ color: "#26a69a", priceFormat: { type: "volume" }, priceScaleId: "" }); volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } }); const volumeData = ' + str(volume_data) + '; volumeSeries.setData(volumeData);' if include_volume and volume_data else ''}
             
