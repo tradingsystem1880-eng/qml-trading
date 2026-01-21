@@ -7,6 +7,9 @@ Provides validators for testing edge significance and risk analysis:
 - PermutationTest: Statistical significance via shuffle testing
 - MonteCarloSim: Risk analysis via equity path simulation
 - BootstrapResample: Confidence intervals via resampling
+- PBOCalculator: Probability of Backtest Overfitting
+- PropFirmSimulator: Prop firm challenge pass probability
+- ValidationService: Unified validation orchestrator
 """
 
 from src.validation.base import (
@@ -16,8 +19,16 @@ from src.validation.base import (
     ValidationSuite
 )
 from src.validation.permutation import PermutationTest, PermutationConfig
-from src.validation.monte_carlo import MonteCarloSim, MonteCarloConfig
+from src.validation.monte_carlo import (
+    MonteCarloSim,
+    MonteCarloConfig,
+    PropFirmRules,
+    PropFirmResult,
+    PropFirmSimulator,
+)
 from src.validation.bootstrap import BootstrapResample, BootstrapConfig
+from src.validation.pbo import PBOCalculator, PBOResult
+from src.validation.service import ValidationService, ValidationReport, quick_validate
 
 # Type alias for backward compatibility
 PermutationResult = ValidationResult
@@ -34,23 +45,35 @@ __all__ = [
     'ValidationResult',
     'ValidationStatus',
     'ValidationSuite',
-    
+
     # Validators
     'PermutationTest',
     'MonteCarloSim',
     'MonteCarloSimulator',  # Alias
     'BootstrapResample',
     'BlockBootstrap',  # Alias
-    
+    'PBOCalculator',
+    'PropFirmSimulator',
+    'ValidationService',
+
     # Config classes
     'PermutationConfig',
     'MonteCarloConfig',
     'BootstrapConfig',
-    
+
+    # Result classes
+    'PBOResult',
+    'PropFirmRules',
+    'PropFirmResult',
+    'ValidationReport',
+
     # Result aliases (for backward compatibility)
     'PermutationResult',
     'MonteCarloResult',
     'BootstrapResult',
+
+    # Convenience functions
+    'quick_validate',
 ]
 
 

@@ -1,0 +1,14 @@
+{
+  "firm_name": "Breakout",
+  "account_size": 100000,
+  "profit_target_pct": 8.0,
+  "max_daily_dd_pct": 4.0,
+  "max_total_dd_pct": 8.0,
+  "min_trading_days": 5,
+  "max_position_size_pct": 2.0,
+  "consistency_rule": true,
+  "kelly_fraction": 0.5,
+  "max_concurrent": 3,
+  "primary_symbols": ["BTC/USDT", "ETH/USDT"],
+  "primary_timeframe": "4H"
+}

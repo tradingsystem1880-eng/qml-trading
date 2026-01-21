@@ -9,11 +9,13 @@ to understand:
 - Conditional VaR (CVaR / Expected Shortfall)
 - Risk of Ruin probability
 - Confidence intervals on final equity
+- Prop firm challenge pass probability
 """
 
 import numpy as np
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+from enum import Enum
 
 from src.validation.base import BaseValidator, ValidationResult, ValidationStatus
 
@@ -26,6 +28,226 @@ class MonteCarloConfig:
     initial_capital: float = 10000.0
     var_confidence: float = 0.95  # VaR at 95% confidence
     risk_of_ruin_threshold: float = 0.5  # 50% drawdown = ruin
+
+
+class FailReason(Enum):
+    """Reasons for failing a prop firm challenge."""
+    DAILY_LOSS = "daily_loss_limit"
+    TOTAL_LOSS = "total_loss_limit"
+    TIME_LIMIT = "time_limit"
+    MIN_DAYS = "min_trading_days"
+
+
+@dataclass
+class PropFirmRules:
+    """
+    Prop firm challenge parameters.
+
+    Default values based on common FTMO/MFF-style challenges.
+    Breakout $100K uses: 4% daily, 8% total, 8% target.
+    """
+    profit_target_pct: float = 10.0  # Must reach 10% profit
+    daily_loss_limit_pct: float = 5.0  # Max -5% daily drawdown
+    total_loss_limit_pct: float = 10.0  # Max -10% total drawdown
+    min_trading_days: int = 10  # Minimum trading days required
+    time_limit_days: int = 30  # Days to pass challenge
+    # Phase 5 additions
+    account_size: float = 100000.0  # Account size in dollars
+    max_position_size_pct: float = 2.0  # Max position as % of account
+    consistency_rule: bool = True  # No single day > 30% of profits
+
+
+@dataclass
+class PropFirmResult:
+    """Result from prop firm challenge simulation."""
+    pass_rate: float  # Probability of passing (0-1)
+    avg_days_to_pass: float  # Average days when passing
+    fail_reasons: Dict[str, float]  # Distribution of failure reasons
+    profit_on_pass: float  # Average profit % when passing
+    details: Dict[str, Any] = field(default_factory=dict)
+
+
+class PropFirmSimulator:
+    """
+    Simulates prop firm challenge pass probability.
+
+    Models daily P&L sequences and checks against challenge rules:
+    - Daily loss limits
+    - Total drawdown limits
+    - Profit targets
+    - Time constraints
+
+    Usage:
+        sim = PropFirmSimulator()
+        rules = PropFirmRules(profit_target_pct=10.0)
+        result = sim.simulate_challenge(daily_returns, rules)
+        print(f"Pass rate: {result.pass_rate:.1%}")
+    """
+
+    def simulate_challenge(
+        self,
+        returns: np.ndarray,
+        rules: PropFirmRules,
+        n_simulations: int = 1000,
+        trades_per_day: float = 2.0
+    ) -> PropFirmResult:
+        """
+        Simulate prop firm challenge outcomes.
+
+        Args:
+            returns: Array of trade returns (as decimals, e.g., 0.02 for 2%)
+            rules: PropFirmRules defining challenge parameters
+            n_simulations: Number of Monte Carlo simulations
+            trades_per_day: Average trades per trading day
+
+        Returns:
+            PropFirmResult with pass rate and failure analysis
+        """
+        if len(returns) < 10:
+            return PropFirmResult(
+                pass_rate=0.0,
+                avg_days_to_pass=0.0,
+                fail_reasons={'insufficient_data': 1.0},
+                profit_on_pass=0.0,
+                details={'error': 'Insufficient trade data'}
+            )
+
+        pass_count = 0
+        days_to_pass = []
+        profits_on_pass = []
+        fail_counts = {
+            FailReason.DAILY_LOSS.value: 0,
+            FailReason.TOTAL_LOSS.value: 0,
+            FailReason.TIME_LIMIT.value: 0,
+            FailReason.MIN_DAYS.value: 0,
+        }
+
+        for _ in range(n_simulations):
+            result = self._run_single_challenge(returns, rules, trades_per_day)
+
+            if result['passed']:
+                pass_count += 1
+                days_to_pass.append(result['days'])
+                profits_on_pass.append(result['final_pnl'])
+            else:
+                fail_counts[result['fail_reason']] += 1
+
+        pass_rate = pass_count / n_simulations
+        avg_days = np.mean(days_to_pass) if days_to_pass else 0.0
+        avg_profit = np.mean(profits_on_pass) if profits_on_pass else 0.0
+
+        # Convert fail counts to proportions
+        fail_total = n_simulations - pass_count
+        fail_reasons = {}
+        if fail_total > 0:
+            for reason, count in fail_counts.items():
+                fail_reasons[reason] = count / fail_total
+
+        return PropFirmResult(
+            pass_rate=pass_rate,
+            avg_days_to_pass=avg_days,
+            fail_reasons=fail_reasons,
+            profit_on_pass=avg_profit * 100,  # Convert to percentage
+            details={
+                'n_simulations': n_simulations,
+                'trades_per_day': trades_per_day,
+                'rules': {
+                    'profit_target': rules.profit_target_pct,
+                    'daily_limit': rules.daily_loss_limit_pct,
+                    'total_limit': rules.total_loss_limit_pct,
+                    'min_days': rules.min_trading_days,
+                    'time_limit': rules.time_limit_days,
+                }
+            }
+        )
+
+    def _run_single_challenge(
+        self,
+        returns: np.ndarray,
+        rules: PropFirmRules,
+        trades_per_day: float
+    ) -> Dict[str, Any]:
+        """Run a single challenge simulation."""
+        equity = 1.0  # Start at 100%
+        high_water_mark = 1.0
+
+        daily_returns = []
+        trading_days = 0
+        current_day_pnl = 0.0
+        trades_today = 0
+
+        for day in range(rules.time_limit_days):
+            # Simulate trades for this day
+            n_trades = np.random.poisson(trades_per_day)
+            if n_trades == 0:
+                continue
+
+            trading_days += 1
+            trades_today = 0
+            current_day_pnl = 0.0
+
+            for _ in range(n_trades):
+                # Sample a trade return
+                trade_return = np.random.choice(returns)
+
+                # Apply to equity
+                equity *= (1 + trade_return)
+                current_day_pnl += trade_return
+                trades_today += 1
+
+                # Check total drawdown
+                total_dd = (high_water_mark - equity) / high_water_mark * 100
+                if total_dd >= rules.total_loss_limit_pct:
+                    return {
+                        'passed': False,
+                        'fail_reason': FailReason.TOTAL_LOSS.value,
+                        'days': day + 1,
+                        'final_pnl': equity - 1
+                    }
+
+                # Update high water mark
+                if equity > high_water_mark:
+                    high_water_mark = equity
+
+            # Check daily loss limit
+            if current_day_pnl * 100 <= -rules.daily_loss_limit_pct:
+                return {
+                    'passed': False,
+                    'fail_reason': FailReason.DAILY_LOSS.value,
+                    'days': day + 1,
+                    'final_pnl': equity - 1
+                }
+
+            daily_returns.append(current_day_pnl)
+
+            # Check if target reached
+            profit_pct = (equity - 1) * 100
+            if profit_pct >= rules.profit_target_pct and trading_days >= rules.min_trading_days:
+                return {
+                    'passed': True,
+                    'fail_reason': None,
+                    'days': day + 1,
+                    'final_pnl': equity - 1
+                }
+
+        # Time limit reached
+        profit_pct = (equity - 1) * 100
+
+        # Check if met target but not min days
+        if profit_pct >= rules.profit_target_pct and trading_days < rules.min_trading_days:
+            return {
+                'passed': False,
+                'fail_reason': FailReason.MIN_DAYS.value,
+                'days': rules.time_limit_days,
+                'final_pnl': equity - 1
+            }
+
+        return {
+            'passed': False,
+            'fail_reason': FailReason.TIME_LIMIT.value,
+            'days': rules.time_limit_days,
+            'final_pnl': equity - 1
+        }
 
 
 class MonteCarloSim(BaseValidator):
