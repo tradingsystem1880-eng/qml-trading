@@ -36,6 +36,9 @@ from src.detection import get_detector, list_available_detectors
 from src.reporting.storage import ExperimentLogger
 from src.reporting.dossier import DossierGenerator
 from src.data.integrity import DataValidator
+from src.data.sqlite_manager import get_db
+from src.data.schemas import TradeOutcome, PatternDetection, generate_id
+from src.features import FeaturePipeline
 
 
 # =============================================================================
@@ -665,6 +668,60 @@ def main():
     run_id = logger.log_run(config, results)
     run_count = logger.count_runs()
     print(f"   Logged run: {run_id} (Total experiments: {run_count})")
+
+    # Save individual trades to database (Phase 2)
+    if results['trades']:
+        db = get_db()
+        trade_count = 0
+        for t in results['trades']:
+            trade_outcome = TradeOutcome(
+                id=generate_id('T'),
+                pattern_id=t.signal_id or '',
+                symbol=t.symbol or config.symbol,
+                timeframe=t.timeframe or config.timeframe,
+                direction=t.side.value if t.side else 'LONG',
+                entry_time=t.entry_time,
+                entry_price=t.entry_price,
+                exit_time=t.exit_time,
+                exit_price=t.exit_price,
+                status=t.result.value if t.result else 'OPEN',
+                pnl_dollars=t.pnl_usd,
+                pnl_percent=t.pnl_pct,
+                r_multiple=t.metadata.get('r_multiple') if t.metadata else None,
+                position_size=t.quantity,
+                risk_amount=abs(t.entry_price - t.stop_loss) if t.stop_loss else 0,
+                stop_loss=t.stop_loss or 0,
+                take_profit=t.take_profit or 0,
+                exit_reason=t.metadata.get('exit_reason') if t.metadata else None,
+                bars_held=t.bars_held,
+            )
+            db.save_trade(trade_outcome, experiment_id=run_id)
+            trade_count += 1
+        print(f"   Saved {trade_count} trades to database")
+
+    # Calculate features for patterns (Phase 3)
+    if results['trades']:
+        print("\n📐 Step 5b: Calculating Features...")
+        try:
+            feature_pipeline = FeaturePipeline(db)
+            feature_count = 0
+            for t in results['trades']:
+                if t.signal_id:
+                    # Get pattern from database
+                    pattern = db.get_pattern(t.signal_id)
+                    if pattern:
+                        # Calculate and save features
+                        features = feature_pipeline.calculate_for_pattern(
+                            pattern=pattern,
+                            ohlcv=df,
+                            outcome=t.result.value if t.result else None,
+                            r_multiple=t.metadata.get('r_multiple') if t.metadata else None,
+                            save=True
+                        )
+                        feature_count += 1
+            print(f"   Calculated features for {feature_count} patterns")
+        except Exception as e:
+            print(f"   ⚠️ Feature calculation failed: {e}")
     
     # Generate HTML Dossier
     print("\n📋 Step 6: Generating Strategy Dossier...")
