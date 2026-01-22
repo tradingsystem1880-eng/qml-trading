@@ -8,9 +8,10 @@ import json
 from pathlib import Path
 from theme import ARCTIC_PRO, TYPOGRAPHY
 
-# Config paths
-YAML_CONFIG_PATH = Path("config/default.yaml")
-JSON_CONFIG_PATH = Path("qml/dashboard/config/user_config.json")
+# Config paths - use project root to handle running from any directory
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+YAML_CONFIG_PATH = PROJECT_ROOT / "config" / "default.yaml"
+JSON_CONFIG_PATH = PROJECT_ROOT / "qml" / "dashboard" / "config" / "user_config.json"
 
 # Prop firm presets
 FIRM_PRESETS = {

@@ -121,3 +121,12 @@ Thumbs.db
 # Embedded repositories (handle separately)
 qml-trading/
 
+# Runtime cache directories
+data/cache/
+qml/dashboard/data/
+
+# Archive (legacy code)
+archive/
+
+# Temporary files
+*.zip

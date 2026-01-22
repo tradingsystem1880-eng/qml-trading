@@ -119,15 +119,11 @@ Both dashboards verified working. **Recommendation: Use qml/dashboard**
 
 ### Launch Commands
 ```bash
-# NEW: Professional Dashboard v2 (TradingView-grade charts)
-cd /Users/hunternovotny/Desktop/QML_SYSTEM
+# Main Dashboard (TradingView-grade charts)
 streamlit run qml/dashboard/app_v2.py
 
 # Test chart component standalone
 streamlit run qml/dashboard/test_chart.py
-
-# Original Dashboard (legacy)
-streamlit run qml/dashboard/app.py
 
 # Alternative: SRC Dashboard (lighter)
 streamlit run src/dashboard/app.py
@@ -214,6 +210,39 @@ st.markdown(html, unsafe_allow_html=True)  # WORKS
 
 ---
 
+## Dashboard Polish & Real Data Connection (2026-01-22)
+
+Final polish pass connecting all dashboard pages to real backtest data.
+
+### Changes Made
+
+1. **Analytics Page** - Now displays real backtest metrics
+   - Reads from `results/experiments.db` SQLite database
+   - Shows actual equity curve, trade statistics, drawdown analysis
+   - Falls back to demo data if no experiments exist
+
+2. **Dashboard Page** - Connected to real data
+   - Loads metrics from latest backtest experiments
+   - Shows real trade history when available
+   - Mock data fallback for new users
+
+3. **Settings Page** - Fixed hardcoded paths
+   - Now uses `PROJECT_ROOT` constant for portability
+   - Works correctly regardless of working directory
+
+4. **Dead Code Removal**
+   - Removed `qml/dashboard/components/backtest.py` (260 lines duplicate)
+   - Moved `src/dashboard/pattern_lab/` to archive
+   - Cleaned unused imports in `pattern_lab_page.py`
+
+5. **New Files Added**
+   - `src/data/schemas.py` - Data model definitions
+   - `src/data/sqlite_manager.py` - Database utilities
+   - `tests/test_pattern_lab_integration.py` - Integration tests
+   - `docs/planning/` - Project planning documents
+
+---
+
 ## Pattern Visualization - FINAL SPECIFICATION (2026-01-20)
 
 **STATUS: LOCKED IN - DO NOT MODIFY WITHOUT EXPLICIT USER REQUEST**
@@ -262,17 +291,17 @@ The pattern visualization system is complete and finalized. This section documen
 
 | File | Purpose |
 |------|---------|
-| `qml/dashboard/app.py` | Main dashboard, contains `find_swing_points()` and `map_to_geometry()` |
+| `qml/dashboard/app_v2.py` | Main dashboard, contains `find_swing_points()` and `map_to_geometry()` |
 | `src/dashboard/components/tradingview_chart.py` | Chart HTML generation with `_generate_chart_html()` |
 | `qml/dashboard/test_chart.py` | Standalone test page with synthetic data generators |
 
 ### Critical Functions
 
-**`find_swing_points(df, lookback=3)`** in `app.py`:
+**`find_swing_points(df, lookback=3)`** in `app_v2.py`:
 - Detects swing highs/lows by comparing to surrounding candles
 - Returns list of `{time, price, type, idx}` dicts sorted by time
 
-**`map_to_geometry(pattern, df)`** in `app.py`:
+**`map_to_geometry(pattern, df)`** in `app_v2.py`:
 - Maps detector output to 5 swing points on actual candle data
 - Handles timezone conversion (removes tz for comparison)
 - Returns chronologically ordered P1-P5 coordinates

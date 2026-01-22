@@ -7,7 +7,6 @@ See CLAUDE.md "Pattern Visualization - FINAL SPECIFICATION" for details.
 """
 
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -19,8 +18,11 @@ from src.detection import (
     SwingAlgorithm, MarketRegimeDetector, RegimeResult
 )
 
+# Pattern display conversion
+from components.pattern_display import pattern_to_chart_dict
+
 # Phase 8.6: Real data loading
-from src.data.loader import load_ohlcv, get_available_symbols, get_available_timeframes
+from src.data.loader import load_ohlcv, get_available_symbols
 
 
 # =============================================================================
@@ -574,6 +576,18 @@ def render_pattern_lab_page() -> None:
         st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         scan_clicked = st.button("🔍 Scan Patterns", type="primary", use_container_width=True)
 
+    # Track current symbol/timeframe and clear stale pattern data on change
+    # This MUST happen before any chart rendering to prevent Y-axis scaling issues
+    current_key = f"{symbol}_{timeframe}"
+    if st.session_state.get('_chart_data_key') != current_key:
+        # Symbol or timeframe changed - clear ALL pattern-related state
+        for key in ['selected_pattern', 'detected_patterns', 'market_regime']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state['_chart_data_key'] = current_key
+        # Force rerun to ensure clean state before rendering
+        st.rerun()
+
     # Chart container with premium header
     chart_panel = '<div class="panel" style="margin-top: 16px;">'
     chart_panel += '<div class="panel-header">'
@@ -614,7 +628,30 @@ def render_pattern_lab_page() -> None:
         # Import and use the chart component
         try:
             from src.dashboard.components.tradingview_chart import render_pattern_chart
-            render_pattern_chart(df, pattern=None, height=500, key="pattern_lab_chart")
+
+            # Check for selected pattern from session state
+            selected_pattern = st.session_state.get('selected_pattern', None)
+            pattern_geometry = None
+
+            if selected_pattern:
+                try:
+                    # Convert QMLPattern to chart dict format
+                    pattern_geometry = pattern_to_chart_dict(selected_pattern)
+
+                    # Validate pattern matches current data range (defensive check)
+                    data_min = float(df['low'].min())
+                    data_max = float(df['high'].max())
+                    pattern_entry = float(pattern_geometry.get('entry_price', 0))
+
+                    # If pattern entry is outside 10x range of data, it's stale
+                    if pattern_entry and (pattern_entry < data_min * 0.1 or pattern_entry > data_max * 10):
+                        pattern_geometry = None
+                except Exception:
+                    pattern_geometry = None
+
+            # Render chart with dynamic key to force re-render when symbol changes
+            chart_key = f"pattern_chart_{symbol}_{timeframe}"
+            render_pattern_chart(df, pattern=pattern_geometry, height=500, key=chart_key)
         except ImportError:
             # Fallback: show simple line chart with Plotly
             import plotly.graph_objects as go
@@ -659,6 +696,10 @@ def render_pattern_lab_page() -> None:
 
     # Run detection when scan clicked
     if scan_clicked:
+        # Clear any previously selected pattern before new scan
+        if 'selected_pattern' in st.session_state:
+            del st.session_state['selected_pattern']
+
         with st.spinner("Scanning for patterns..."):
             patterns, regime = run_pattern_detection(df, settings)
             st.session_state['detected_patterns'] = patterns
@@ -667,6 +708,8 @@ def render_pattern_lab_page() -> None:
                 st.success(f"Found {len(patterns)} pattern(s)")
             else:
                 st.warning("No patterns detected with current settings")
+            # Rerun to update chart with cleared pattern
+            st.rerun()
 
     # Pattern Results Panel
     patterns_panel = '<div class="panel" style="margin-top: 16px;">'
@@ -688,9 +731,10 @@ def render_pattern_lab_page() -> None:
         render_pattern_metrics(patterns)
         selected_pattern = render_pattern_list(patterns)
 
-        # If pattern selected, update chart (future integration)
+        # If pattern selected, store in session state and rerun to update chart
         if selected_pattern:
             st.session_state['selected_pattern'] = selected_pattern
+            st.rerun()
     else:
         placeholder = f'<div style="padding: 32px; text-align: center; color: {ARCTIC_PRO["text_muted"]};">'
         placeholder += 'Click "Scan Patterns" to detect QML patterns in the current view'

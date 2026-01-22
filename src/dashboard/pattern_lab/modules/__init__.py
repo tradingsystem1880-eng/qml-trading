@@ -1,1 +1,0 @@
-"""Pattern Lab Modules Package"""

@@ -69,6 +69,7 @@ def _generate_chart_html(
     trade_zones_js = ""
     swing_points_js = ""
     trend_line_js = ""
+    position_box_js = ""
 
     if pattern:
         # Extract trend line data (swings before the pattern showing prior trend)
@@ -481,9 +482,9 @@ def render_pattern_chart(
     
     # Generate HTML
     html = _generate_chart_html(df, pattern=pattern, height=height)
-    
-    # Render in Streamlit
-    components.html(html, height=height + 20, scrolling=False)
+
+    # Render in Streamlit - KEY is critical for forcing re-render on symbol change
+    components.html(html, height=height + 20, scrolling=False, key=key)
 
 
 def render_mini_chart(
