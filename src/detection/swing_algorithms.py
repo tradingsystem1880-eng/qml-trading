@@ -117,6 +117,10 @@ class MultiAlgorithmSwingDetector:
         """Get timestamp at index, handling different index types."""
         if isinstance(df.index, pd.DatetimeIndex):
             return df.index[idx]
+        elif 'time' in df.columns:
+            return pd.Timestamp(df.iloc[idx]['time'])
+        elif 'timestamp' in df.columns:
+            return pd.Timestamp(df.iloc[idx]['timestamp'])
         else:
             return pd.Timestamp.now()
 
