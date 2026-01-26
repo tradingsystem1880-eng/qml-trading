@@ -11,6 +11,7 @@ from .analytics_page import render_analytics_page
 from .experiments_page import render_experiments_page
 from .ml_training_page import render_ml_training_page
 from .settings_page import render_settings_page
+from .live_scanner_page import render_live_scanner_page
 
 __all__ = [
     'render_dashboard_page',
@@ -20,4 +21,5 @@ __all__ = [
     'render_experiments_page',
     'render_ml_training_page',
     'render_settings_page',
+    'render_live_scanner_page',
 ]

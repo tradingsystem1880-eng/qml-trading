@@ -7,7 +7,8 @@ Quantitative validation framework for Quasimodo (QML) chart pattern detection in
 - Framework: PRODUCTION-READY
 - Detection Logic: ✅ Phase 7.9 COMPLETE - Verified edge (PF 1.23, DSR 0.986)
 - ML Meta-Labeling: ❌ Phase 8.0 FAILED - ML has no predictive power (AUC 0.53)
-- **Recommendation**: Use Phase 7.9 baseline with fixed 1% position sizing
+- Exit Optimization: ✅ Phase 9.0/9.1/9.2 COMPLETE - Multi-stage trailing fixed
+- **Recommendation**: Use multi_stage trailing with adaptive TP for best MFE capture
 - Data: Fixed, parquet files working (30 symbols × 3 timeframes)
 - Dashboard v2: ✅ FULLY WORKING - JARVIS theme, all HTML rendering fixed (2026-01-18)
 
@@ -34,11 +35,16 @@ Quantitative validation framework for Quasimodo (QML) chart pattern detection in
 3. ~~Verify full validation pipeline works~~ DONE
 4. ~~Dashboard salvage assessment~~ DONE - Improved!
 5. ~~Phase 7.6: Hierarchical swing detection + data expansion~~ DONE
-6. ~~Phase 7.7: Extended optimization (56 hours, 6 objectives)~~ DONE (2026-01-26)
+6. ~~Phase 7.7: Extended optimization (56 hours, 6 objectives)~ DONE (2026-01-26)
 7. ~~Phase 7.8: Add volume/momentum/regime filters~~ DONE (2026-01-26)
 8. ~~Phase 7.9: Optimization with filters~~ DONE - Verified edge (PF 1.23, DSR 0.986)
 9. ~~Phase 8.0: ML Meta-Labeling~~ FAILED - ML has no predictive power (AUC 0.53)
-10. **Phase 9.0: Paper trading with Phase 7.9 baseline** (NEXT)
+10. ~~Phase 9.0: Exit optimization + forward test infrastructure~~ DONE (2026-01-26)
+11. ~~Phase 9.1: Fix regime filter bug~~ DONE - Calculate regime per-pattern
+12. ~~Phase 9.2: Fix trailing stop breakeven bug~~ DONE - Multi-stage trailing (2026-01-26)
+13. ~~Live Scanner + MT5 Integration~~ DONE (2026-01-27)
+14. **Connect Bybit MT5 for crypto charts** (NEXT)
+15. Paper trading / Forward testing
 
 ## Commands Reference
 - Run backtest: `python -m cli.run_backtest --symbol BTCUSDT --timeframe 4h`
@@ -69,6 +75,8 @@ When starting a new session, tell Claude:
 | Dashboard (qml/) | ✅ VERIFIED | **USE app_v2.py** - JARVIS theme, HTML fully fixed |
 | Dashboard (src/) | ✅ VERIFIED | Works but fewer features (32KB) |
 | ML Training | ✅ VERIFIED | XGBoost predictor works (see ML section) |
+| Live Scanner | ✅ VERIFIED | Scans 32 symbols, multi-TF alignment |
+| MT5 Integration | ✅ VERIFIED | Auto-draws patterns on MT5 charts |
 
 ## Validation Pipeline Details
 
@@ -601,27 +609,198 @@ Phase 8.0 ML failed this test (AUC 0.53 = random).
 
 ## Current State (2026-01-26)
 
-**USE PHASE 7.9 BASELINE** - ML meta-labeling provides no benefit.
+**USE PHASE 9.2 MULTI-STAGE TRAILING** - All exit bugs fixed.
 
-| System | PF | Status |
-|--------|-----|--------|
-| Phase 7.9 Baseline | 1.23 | ✅ USE THIS |
-| Phase 8.0 ML | N/A | ❌ REJECTED |
+| System | PF | Win Rate | Avg Bars | Status |
+|--------|-----|----------|----------|--------|
+| Phase 7.9 Baseline | 1.23 | 52% | - | Pre-regime fix |
+| Phase 8.0 ML | N/A | N/A | - | ❌ REJECTED |
+| Phase 9.1 Fixed TP | 8.31 | 82% | 12.7 | Regime bug fixed |
+| Phase 9.2 Fixed TP | 8.53 | 85.7% | 9.3 | ✅ Multi-stage trailing |
+| Phase 9.2 Adaptive TP | 9.18 | 85.7% | 7.3 | ✅ RECOMMENDED |
 
-The baseline with fixed 1% position sizing is the correct approach.
+---
+
+## Phase 9.0/9.1: Exit Optimization (2026-01-26) ✅ COMPLETE
+
+### Phase 9.0: Exit Infrastructure
+
+Added time-decaying profit target and forward test monitoring.
+
+**Files Created:**
+- `src/risk/position_rules.py` - Consolidated risk rules
+- `src/risk/forward_monitor.py` - Edge degradation detection
+- `scripts/compare_exit_strategies.py` - A/B testing script
+- `scripts/run_phase90_forward.py` - Forward test CLI
+- `PRODUCTION_SYSTEM.md` - Production documentation
+
+**Files Modified:**
+- `src/optimization/trade_simulator.py` - Added TP decay logic
+- `src/trading/paper_trader.py` - Wired in Kelly sizer
+
+### Phase 9.1: Regime Filter Bug Fix
+
+**Critical Bug Found:** Regime was calculated ONCE for entire dataframe, then applied to ALL patterns. This rejected all patterns if current market was trending.
+
+**Fix:** Calculate regime AT EACH PATTERN'S P5 TIME using a 150-bar window.
+
+**Files Fixed:**
+- `scripts/multi_symbol_detection.py`
+- `scripts/compare_exit_strategies.py`
+- `scripts/diagnose_regime_filter.py`
+- `scripts/run_phase90_forward.py`
+
+### Results (68 trades, 7 symbols)
+
+| Strategy | Win Rate | PF | Expectancy | Avg Bars |
+|----------|----------|-----|------------|----------|
+| Fixed TP (3R) | 82.4% | 8.31 | 1.22R | 12.7 |
+| Adaptive TP | 88.2% | 12.29 | 1.22R | 7.7 |
+
+**Key Finding:** Adaptive exits increase win rate but decrease average win. Expectancy is identical (~1.22R). Choice depends on trading style preference.
+
+### Commands
+```bash
+# Run exit strategy comparison
+python scripts/compare_exit_strategies.py --symbols BTCUSDT,ETHUSDT
+
+# Run regime filter diagnostic
+python scripts/diagnose_regime_filter.py --symbols BTCUSDT,ETHUSDT
+
+# Run forward test
+python scripts/run_phase90_forward.py --symbols BTCUSDT,ETHUSDT
+```
+
+---
+
+## Phase 9.2: Exit Strategy Integrity (2026-01-26) ✅ COMPLETE
+
+### Bug Found & Fixed
+
+**Original Bug:** The trailing stop in `trade_simulator.py` activated at **breakeven** (entry price) and then immediately tightened with `trailing_step_atr`, causing trades to exit within 1-2 bars with tiny profits. These were counted as "wins", artificially inflating WR and PF.
+
+**Fix:** Implemented **multi-stage trailing stop** that lets trades develop before adjusting stops:
+
+| Stage | Profit Level | Action |
+|-------|--------------|--------|
+| 0 | < 1.5R | Keep initial stop, no adjustment |
+| 1 | 1.5R - 2.0R | Move SL to +0.5R (protect small profit) |
+| 2 | 2.0R - 3.0R | Loose trail at 1.2 ATR from high |
+| 3 | 3.0R - 5.0R | Medium trail at 0.8 ATR from high |
+| 4 | > 5.0R | Tight trail at 0.5 ATR from high |
+
+### Files Modified/Created
+
+| File | Purpose |
+|------|---------|
+| `src/optimization/trade_simulator.py` | Added `trailing_mode` and multi-stage logic |
+| `scripts/verify_phase79_baseline.py` | Baseline verification script |
+| `scripts/diagnose_trade_pathology.py` | Pathology detection script |
+
+### New Config Options
+
+```python
+TradeManagementConfig(
+    trailing_mode="multi_stage",  # "none", "simple", "multi_stage"
+    trailing_stage1_profit_r=1.5,  # Activate stage 1 at 1.5R
+    trailing_stage1_level_r=0.5,   # Move SL to +0.5R
+    # ... more stage params
+)
+```
+
+### Verification Results (5 symbols, trailing_mode=none)
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Win Rate | 79.6% | OK (expected ~80%) |
+| Profit Factor | 7.16 | OK (expected ~7) |
+| Avg Bars Held | 13.0 | OK |
+| Exit by TP | 75.9% | OK |
+| Dust Wins | 0% | OK |
+
+### Comparison: Fixed TP vs Adaptive TP (multi_stage trailing)
+
+| Metric | Fixed TP | Adaptive TP | Improvement |
+|--------|----------|-------------|-------------|
+| Win Rate | 85.7% | 85.7% | Same |
+| Profit Factor | 8.53 | 9.18 | +7.6% |
+| Expectancy | 1.095R | 1.189R | +8.6% |
+| Avg Bars Held | 9.3 | 7.3 | -21% (faster) |
+| MFE Capture | 68.5% | 78.3% | +14% |
+
+### Commands
+
+```bash
+# Verify baseline
+python scripts/verify_phase79_baseline.py
+
+# Run diagnostics
+python scripts/diagnose_trade_pathology.py --trailing-mode multi_stage
+
+# Compare exit strategies
+python scripts/compare_exit_strategies.py --trailing-mode multi_stage
+```
+
+---
+
+## Live Scanner & MT5 Integration (2026-01-27)
+
+### Live Scanner Dashboard Page
+New tab in JARVIS dashboard: **📡 Live Scanner**
+
+**Features:**
+- Scans all 32 symbols across 1h, 4h, 1d timeframes
+- Auto-refresh every 15 minutes (configurable)
+- Multi-TF alignment detection (highlights patterns on 2+ timeframes)
+- Quality threshold slider
+- Click-to-view pattern charts
+- **📤 Send to MT5** button for each pattern
+
+**Launch:**
+```bash
+streamlit run qml/dashboard/app_v2.py
+# Navigate to "📡 Live Scanner" tab
+```
+
+### MT5 Auto-Draw Integration
+Patterns auto-draw on MetaTrader 5 charts with full visualization.
+
+**Components:**
+| File | Purpose |
+|------|---------|
+| `MQL5/Experts/QML_Pattern_Drawer.mq5` | MT5 Expert Advisor |
+| `src/export/mt5_exporter.py` | Python exporter |
+
+**What it draws:**
+- P1→P2→P3→P4→P5 swing points (blue)
+- Prior trend line (orange)
+- Entry/SL/TP lines with labels
+- Position boxes (green profit, red risk)
+- Alert popup when pattern received
+
+**Setup MT5:**
+1. Open MetaEditor: `Ctrl+Shift+M`
+2. Find `QML_Pattern_Drawer.mq5` → Press `F7` to compile
+3. Drag EA onto chart → Enable "Allow Algo Trading"
+
+**TODO:** Connect Bybit MT5 for crypto charts (MetaQuotes-Demo is Forex only)
+
+### Custom Skills Added
+14 Claude Code skills in `.claude/skills/`:
+- `/backtest`, `/scan`, `/validate`, `/optimize`
+- `/dashboard`, `/status`, `/fetch-data`
+- `/paper-trade`, `/forward-test`, `/chart`
+- `/test`, `/commit`, `/review`, `/debug`, `/explain`
 
 ---
 
 ## What's Next
 
-**Phase 8.0 ML rejected. Next steps:**
+**Live Scanner + MT5 complete. Next steps:**
 
-1. **Paper trading** with Phase 7.9 baseline (fixed 1% sizing)
-2. **Forward validation** - monitor performance on new data
-3. **Feature engineering** - try different features if ML attempted again
-4. **Alternative approaches:**
-   - Higher timeframe alignment
-   - Volume confirmation filters
-   - Sentiment/funding rate integration
+1. **Paper trading** with fixed 1% sizing
+2. **Forward validation** on recent/new data
+3. **Monitor for edge degradation** using ForwardTestMonitor
+4. **Live deployment** after 500+ forward trades
 
-The Phase 7.9 baseline (PF 1.23, DSR 0.986) is ready for live testing.
+The system is ready for forward testing.

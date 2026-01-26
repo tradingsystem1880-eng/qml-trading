@@ -48,6 +48,7 @@ from pages import (
     render_experiments_page,
     render_ml_training_page,
     render_settings_page,
+    render_live_scanner_page,
 )
 
 
@@ -98,6 +99,7 @@ def main():
     tabs = st.tabs([
         "📊 Dashboard",
         "🔬 Pattern Lab",
+        "📡 Live Scanner",
         "📈 Backtest",
         "📉 Analytics",
         "🧪 Experiments",
@@ -113,18 +115,21 @@ def main():
         render_pattern_lab_page()
 
     with tabs[2]:
-        render_backtest_page()
+        render_live_scanner_page()
 
     with tabs[3]:
-        render_analytics_page()
+        render_backtest_page()
 
     with tabs[4]:
-        render_experiments_page()
+        render_analytics_page()
 
     with tabs[5]:
-        render_ml_training_page()
+        render_experiments_page()
 
     with tabs[6]:
+        render_ml_training_page()
+
+    with tabs[7]:
         render_settings_page()
 
 
