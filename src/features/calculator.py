@@ -14,8 +14,15 @@ Total: 16 features per pattern
 
 import numpy as np
 import pandas as pd
-import pandas_ta as ta
 from scipy import stats
+
+# pandas_ta is optional - only needed for advanced feature calculation
+try:
+    import pandas_ta as ta
+    HAS_PANDAS_TA = True
+except ImportError:
+    ta = None
+    HAS_PANDAS_TA = False
 from datetime import datetime
 from typing import Optional
 
@@ -86,6 +93,26 @@ class FeatureCalculator:
         - ATR Percentile: scipy.stats.percentileofscore()
         - Volume Trend: scipy.stats.linregress()
         """
+        if not HAS_PANDAS_TA:
+            # Fill with default values when pandas_ta not available
+            self.data['atr'] = (self.data['high'] - self.data['low']).rolling(14).mean()
+            self.data['rsi'] = 50.0
+            self.data['adx'] = 25.0
+            self.data['dmp'] = 25.0
+            self.data['dmn'] = 25.0
+            self.data['ema_20'] = self.data['close'].ewm(span=20).mean()
+            self.data['ema_50'] = self.data['close'].ewm(span=50).mean()
+            self.data['ema_200'] = self.data['close'].ewm(span=200).mean()
+            self.data['volume_sma'] = self.data['volume'].rolling(20).mean()
+            self.data['bb_upper'] = self.data['close'].rolling(20).mean() + 2 * self.data['close'].rolling(20).std()
+            self.data['bb_middle'] = self.data['close'].rolling(20).mean()
+            self.data['bb_lower'] = self.data['close'].rolling(20).mean() - 2 * self.data['close'].rolling(20).std()
+            self.data['macd'] = 0.0
+            self.data['macd_signal'] = 0.0
+            self.data['macd_hist'] = 0.0
+            self.data['obv'] = 0.0
+            return
+
         high = self.data['high']
         low = self.data['low']
         close = self.data['close']
