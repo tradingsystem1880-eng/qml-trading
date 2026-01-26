@@ -75,8 +75,11 @@ class QMLConfig:
 
     # Pattern validation thresholds
     min_head_extension_atr: float = 0.5
-    max_shoulder_tolerance_atr: float = 1.0
+    max_shoulder_tolerance_atr: float = 1.0  # Legacy: kept for backward compat
     bos_requirement: int = 1
+
+    # Phase 7.5: P5 symmetry tolerance (ATR-normalized using atr_p5)
+    p5_max_symmetry_atr: float = 2.0  # Max P5-P1 difference in ATR units
 
     # Entry/Exit placement
     entry_buffer_atr: float = 0.1
@@ -260,9 +263,12 @@ class QMLPatternDetector:
             return None
         p5 = p5_candidates[0]
 
-        # Shoulder symmetry check
-        shoulder_diff = abs(p5.price - p1.price) / atr
-        if shoulder_diff > self.config.max_shoulder_tolerance_atr:
+        # Shoulder symmetry check - Phase 7.5: Use ATR at P5 for normalization
+        atr_p5 = df['atr'].iloc[p5.index] if p5.index < len(df) else atr
+        if atr_p5 <= 0 or np.isnan(atr_p5):
+            atr_p5 = atr  # Fallback to P3 ATR
+        shoulder_diff = abs(p5.price - p1.price) / atr_p5
+        if shoulder_diff > self.config.p5_max_symmetry_atr:
             return None
 
         # Pattern duration check
@@ -364,9 +370,12 @@ class QMLPatternDetector:
             return None
         p5 = p5_candidates[0]
 
-        # Shoulder symmetry check
-        shoulder_diff = abs(p5.price - p1.price) / atr
-        if shoulder_diff > self.config.max_shoulder_tolerance_atr:
+        # Shoulder symmetry check - Phase 7.5: Use ATR at P5 for normalization
+        atr_p5 = df['atr'].iloc[p5.index] if p5.index < len(df) else atr
+        if atr_p5 <= 0 or np.isnan(atr_p5):
+            atr_p5 = atr  # Fallback to P3 ATR
+        shoulder_diff = abs(p5.price - p1.price) / atr_p5
+        if shoulder_diff > self.config.p5_max_symmetry_atr:
             return None
 
         # Pattern duration check

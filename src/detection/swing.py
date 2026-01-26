@@ -28,20 +28,23 @@ from src.utils.indicators import calculate_atr
 @dataclass
 class SwingConfig:
     """Configuration for swing point detection."""
-    
+
     # Minimum bars on each side of a swing point
     lookback_bars: int = 5
     lookforward_bars: int = 3
-    
+
     # ATR multiplier for significance (timeframe-specific)
     atr_multiplier: float = 1.0
-    
+
     # Minimum significance as percentage of price
     min_significance_pct: float = 0.3
-    
+
+    # Phase 7.5: Absolute minimum threshold as fraction of price (0.1% = 0.001)
+    min_threshold_pct: float = 0.001
+
     # ATR calculation period
     atr_period: int = 14
-    
+
     # Confirmation settings
     require_confirmation: bool = True
     confirmation_bars: int = 2
@@ -166,14 +169,16 @@ class SwingDetector:
             atr_significance = significance / atr[i]
             
             # Check minimum significance threshold
+            # Phase 7.5: Added absolute floor based on price percentage
             min_threshold = max(
                 self.config.atr_multiplier,
-                self.config.min_significance_pct / 100 * current_high / atr[i]
+                self.config.min_significance_pct / 100 * current_high / atr[i],
+                current_high * self.config.min_threshold_pct / atr[i]  # Absolute floor
             )
-            
+
             if atr_significance < min_threshold:
                 continue
-            
+
             # Confirmation check: subsequent bars should close below the high
             confirmed = True
             if self.config.require_confirmation and i + self.config.confirmation_bars < n:
@@ -189,10 +194,11 @@ class SwingDetector:
                 price=float(current_high),
                 significance=float(atr_significance),
                 atr_at_point=float(atr[i]),
+                atr_at_formation=float(atr[i]),  # Phase 7.5: ATR when detected
                 confirmed=confirmed,
                 bar_index=i
             )
-            
+
             swing_highs.append(swing_point)
         
         return swing_highs
@@ -243,14 +249,16 @@ class SwingDetector:
             atr_significance = significance / atr[i]
             
             # Check minimum significance threshold
+            # Phase 7.5: Added absolute floor based on price percentage
             min_threshold = max(
                 self.config.atr_multiplier,
-                self.config.min_significance_pct / 100 * current_low / atr[i]
+                self.config.min_significance_pct / 100 * current_low / atr[i],
+                current_low * self.config.min_threshold_pct / atr[i]  # Absolute floor
             )
-            
+
             if atr_significance < min_threshold:
                 continue
-            
+
             # Confirmation check: subsequent bars should close above the low
             confirmed = True
             if self.config.require_confirmation and i + self.config.confirmation_bars < n:
@@ -266,10 +274,11 @@ class SwingDetector:
                 price=float(current_low),
                 significance=float(atr_significance),
                 atr_at_point=float(atr[i]),
+                atr_at_formation=float(atr[i]),  # Phase 7.5: ATR when detected
                 confirmed=confirmed,
                 bar_index=i
             )
-            
+
             swing_lows.append(swing_point)
         
         return swing_lows

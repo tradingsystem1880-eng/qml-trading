@@ -17,38 +17,43 @@ def get_detector(
 ) -> BaseDetector:
     """
     Factory function to get the appropriate detector instance.
-    
+
     This is the primary interface for obtaining detector instances.
     It handles configuration and returns the correct detector based
     on the method name.
-    
+
     Supported methods:
     - "rolling_window" or "v1": RollingWindowDetector (v1.1.0)
     - "atr" or "atr_directional_change" or "v2": ATRDetector (v2.0.0)
-    
+    - "historical" or "batch" or "backtest": HistoricalSwingDetector (Phase 7.5)
+
     Args:
         method_name: Name of the detection method. Case-insensitive.
-                    Accepts: "rolling_window", "v1", "atr", "atr_directional_change", "v2"
+                    Accepts: "rolling_window", "v1", "atr", "atr_directional_change", "v2",
+                             "historical", "batch", "backtest"
         config: Configuration dictionary or DetectorConfig instance.
                If dict, will be converted to appropriate config class.
-    
+
     Returns:
         Configured detector instance (subclass of BaseDetector)
-    
+
     Raises:
         ValueError: If method_name is not recognized
-    
+
     Examples:
         # Get ATR detector with default config
         detector = get_detector("atr")
-        
+
         # Get rolling window detector with custom config
         detector = get_detector("rolling_window", {"window_size": 150, "step_size": 8})
-        
+
         # Get detector using config object
         from src.detection.v2_atr import ATRDetectorConfig
         config = ATRDetectorConfig(atr_lookback=20)
         detector = get_detector("v2", config)
+
+        # Get historical detector for backtesting
+        detector = get_detector("historical")
     """
     # Normalize method name
     method = method_name.lower().strip()
@@ -97,11 +102,30 @@ def get_detector(
             raise ValueError(f"Unsupported config type: {type(config)}")
         
         return ATRDetector(detector_config)
-    
+
+    elif method in ("historical", "batch", "backtest"):
+        # Phase 7.5: Historical/batch detector for backtesting
+        from src.detection.historical_detector import HistoricalSwingDetector
+        from src.detection.config import SwingDetectionConfig
+
+        if config is None:
+            swing_config = SwingDetectionConfig()
+        elif isinstance(config, dict):
+            swing_config = SwingDetectionConfig(**config.get("swing", config))
+        elif isinstance(config, DetectorConfig):
+            swing_config = SwingDetectionConfig(
+                atr_period=config.atr_period,
+            )
+        else:
+            swing_config = SwingDetectionConfig()
+
+        return HistoricalSwingDetector(swing_config)
+
     else:
         available = [
-            "rolling_window (v1)", 
-            "atr_directional_change (v2)"
+            "rolling_window (v1)",
+            "atr_directional_change (v2)",
+            "historical (Phase 7.5 batch detector)"
         ]
         raise ValueError(
             f"Unknown detection method: '{method_name}'. "
@@ -112,10 +136,10 @@ def get_detector(
 def list_available_detectors() -> Dict[str, Dict[str, str]]:
     """
     List all available detector methods with their descriptions.
-    
+
     Returns:
         Dictionary mapping method names to info dicts
-    
+
     Example:
         >>> list_available_detectors()
         {
@@ -128,6 +152,11 @@ def list_available_detectors() -> Dict[str, Dict[str, str]]:
                 'version': '2.0.0',
                 'description': 'ATR-driven detection...',
                 'aliases': ['v2', 'atr']
+            },
+            'historical': {
+                'version': '7.5.0',
+                'description': 'Idempotent batch detector...',
+                'aliases': ['batch', 'backtest']
             }
         }
     """
@@ -149,6 +178,15 @@ def list_available_detectors() -> Dict[str, Dict[str, str]]:
             ),
             'aliases': ['v2', 'atr', 'v2_atr'],
             'recommended_for': 'Production use, new development',
+        },
+        'historical': {
+            'version': '7.5.0',
+            'description': (
+                'Idempotent batch detector using scipy argrelextrema. '
+                'Uses lookforward data (not causal). Z-score based filtering.'
+            ),
+            'aliases': ['batch', 'backtest'],
+            'recommended_for': 'Backtesting, historical analysis, strategy research',
         }
     }
 
