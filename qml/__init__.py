@@ -5,41 +5,25 @@ Professional-grade algo trading system for QML pattern detection.
 
 Core modules:
 - qml.core: Data loading, indicators, configuration
-- qml.strategy: Pattern detection and signal generation
-- qml.backtest: Backtesting engine
-- qml.validation: Walk-forward, Monte Carlo, permutation tests
 - qml.dashboard: Streamlit UI (the "brain")
 
-Architecture follows Freqtrade/NautilusTrader patterns.
+The dashboard directly imports from src/ for detection, backtest, and validation.
 
 Usage:
-    from qml import QMLEngine
-    
-    engine = QMLEngine()
-    patterns = engine.detect_patterns("BTC/USDT", "4h")
-    results = engine.backtest(patterns)
+    # Run the dashboard
+    streamlit run qml/dashboard/app_v2.py
 """
 
 __version__ = "2.0.0"
 __author__ = "QML System"
 
-# Core engine
-from qml.core.engine import QMLEngine
+# Core utilities (config, data loading, indicators)
 from qml.core.config import QMLConfig
-
-# Easy imports for common operations
 from qml.core.data import DataLoader
 from qml.core.indicators import Indicators
-from qml.strategy.detector import PatternDetector
-from qml.backtest.engine import BacktestEngine
-from qml.validation.validator import Validator
 
 __all__ = [
-    "QMLEngine",
     "QMLConfig",
     "DataLoader",
     "Indicators",
-    "PatternDetector",
-    "BacktestEngine",
-    "Validator",
 ]
