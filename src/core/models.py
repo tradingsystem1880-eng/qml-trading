@@ -318,7 +318,7 @@ class Trade:
 class SwingPoint:
     """
     Confirmed swing high or swing low point.
-    
+
     Represents a local price extreme that has been confirmed
     by subsequent price action (e.g., ATR reversal).
     """
@@ -326,26 +326,30 @@ class SwingPoint:
     price: float
     timestamp: datetime
     bar_index: int
-    
+
     # Confirmation details
     confirmed: bool = False
     confirmation_timestamp: Optional[datetime] = None
     confirmation_bar_index: Optional[int] = None
     confirmation_price: Optional[float] = None
-    
+
     # Volatility context
     atr_at_point: Optional[float] = None
     significance: float = 0.0  # ATR-normalized significance
-    
+
+    # Phase 7.5 additions
+    atr_at_formation: Optional[float] = None  # ATR when swing was DETECTED
+    significance_zscore: float = 0.0  # Statistical significance z-score
+
     # Metadata
     symbol: Optional[str] = None
     timeframe: Optional[str] = None
-    
+
     @property
     def is_high(self) -> bool:
         """Check if this is a swing high."""
         return self.swing_type == SwingType.HIGH
-    
+
     @property
     def is_low(self) -> bool:
         """Check if this is a swing low."""

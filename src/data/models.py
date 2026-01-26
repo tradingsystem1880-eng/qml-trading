@@ -137,7 +137,7 @@ class OHLCV(BaseModel):
 class SwingPoint(BaseModel):
     """Swing high/low point model."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     time: datetime
     symbol: str
     timeframe: str
@@ -147,6 +147,16 @@ class SwingPoint(BaseModel):
     atr_at_point: float
     confirmed: bool = False
     bar_index: Optional[int] = None
+
+    # Phase 7.5 additions for improved detection
+    atr_at_formation: Optional[float] = Field(
+        default=None,
+        description="ATR at the time the swing was DETECTED (not current ATR)"
+    )
+    significance_zscore: float = Field(
+        default=0.0,
+        description="Statistical significance as z-score for cross-timeframe comparison"
+    )
     
     @property
     def is_high(self) -> bool:
