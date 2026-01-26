@@ -53,19 +53,24 @@ class LabelConfig:
 @dataclass
 class LabelResult:
     """Result of labeling a pattern."""
-    
+
     pattern_id: int
     label: Label
     outcome: TradeOutcome
-    
+
     entry_price: float
     exit_price: float
     return_pct: float
-    
+
     bars_to_outcome: int
     hit_tp: bool
     hit_sl: bool
     hit_time_barrier: bool
+
+    # Phase 8.0: Meta-labeling quality distinction
+    # True if TP was hit BEFORE SL (clean win, high-quality trade)
+    # Used for triple-barrel meta-labeling where label=1 only for quality wins
+    hit_tp_before_sl: bool = False
 
 
 class TripleBarrierLabeler:
@@ -338,6 +343,10 @@ class TripleBarrierLabeler:
         else:
             return_pct = (entry_price - exit_price) / entry_price * 100
         
+        # Phase 8.0: hit_tp_before_sl is True when TP was hit cleanly
+        # (i.e., TP hit first, SL never triggered)
+        hit_tp_before_sl = hit_tp and not hit_sl
+
         return LabelResult(
             pattern_id=pattern.id or 0,
             label=label,
@@ -348,7 +357,8 @@ class TripleBarrierLabeler:
             bars_to_outcome=exit_idx - entry_idx,
             hit_tp=hit_tp,
             hit_sl=hit_sl,
-            hit_time_barrier=not hit_tp and not hit_sl
+            hit_time_barrier=not hit_tp and not hit_sl,
+            hit_tp_before_sl=hit_tp_before_sl,
         )
 
 
