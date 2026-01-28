@@ -1,0 +1,62 @@
+{
+  "last_updated": "2026-01-28T21:30:00.000000",
+  "total_experiments": 1,
+  "experiments": [
+    {
+      "id": "funding_rate_filter_20260128_205616_f461ca88",
+      "timestamp": "2026-01-28T20:56:16.219441",
+      "hypothesis": "Extreme funding rates (±0.010%) predict poor trade outcomes due to overcrowded positioning",
+      "feature_name": "funding_rate_filter",
+      "methodology": "Permutation test (10k) + walk-forward consistency (5 folds) + economic significance + mandatory/weighted criteria",
+      "results": {
+        "baseline_pf": 8.268,
+        "filtered_pf": 9.466,
+        "pf_improvement": 1.197,
+        "pf_improvement_pct": 14.5,
+        "trade_reduction_pct": 19.0,
+        "permutation_p_value": 0.0111,
+        "walkforward_folds_improved": "4/5",
+        "economically_beneficial": false,
+        "dd_reduction_pct": 0.0,
+        "weighted_score": "3/6",
+        "threshold": 0.0001,
+        "trades_removed": {
+          "total": 68,
+          "winners": 41,
+          "losers": 27
+        },
+        "r_attribution": {
+          "winners_lost_r": -155.8,
+          "losers_avoided_r": 27.3,
+          "net_r_impact": -128.5
+        }
+      },
+      "edge_cases_triggered": [
+        "REMOVED_MORE_WINNERS_THAN_LOSERS",
+        "NET_R_NEGATIVE"
+      ],
+      "conclusion": "FAIL",
+      "failure_reason": "Filter removes more winning trades (41) than losing trades (27), resulting in net negative R impact (-128.5R). Statistical significance is misleading - PF improved because removing ANY trade with below-average R/R will mechanically improve PF. This is survivorship bias, not predictive power.",
+      "key_learning": "PF improvement alone is insufficient validation. Must verify filter has selective power (removes more losers than winners) AND improves net R. Statistical tests can pass while economic impact is negative.",
+      "notes": "Permutation p=0.0111 PASSED, WF 4/5 folds PASSED, but Economic test FAILED. Filter lacks predictive power - randomly removing trades would produce similar PF improvement. Proceed with BASE system (no funding filter) for paper trading.",
+      "verdict": "FAIL",
+      "next_action": "Paper trade BASE system (no funding filter). Add inverse hypothesis to Priority 2 backlog: test if extreme funding IMPROVES outcomes (momentum/trend confirmation).",
+      "inverse_hypothesis": "Extreme funding rates may indicate strong momentum that HELPS trend-following QML patterns rather than hurting them. Worth testing positive funding → LONG only, negative funding → SHORT only.",
+      "tags": [
+        "funding_rate",
+        "phase97",
+        "deepseek_methodology",
+        "failed_filter",
+        "survivorship_bias"
+      ]
+    }
+  ],
+  "research_backlog": [
+    {
+      "priority": 2,
+      "hypothesis": "Extreme funding rates indicate momentum that helps QML trend-following (inverse of original hypothesis)",
+      "rationale": "Original filter removed more winners than losers, suggesting extreme funding may actually help rather than hurt",
+      "source": "Phase 9.7 failure analysis"
+    }
+  ]
+}

@@ -46,7 +46,8 @@ Quantitative validation framework for Quasimodo (QML) chart pattern detection in
 14. ~~Live Scanner + MT5 Integration~~ DONE (2026-01-27)
 15. ~~Phase 9.4: Validate PF 5.0 + Forward Test Setup~~ DONE (2026-01-27)
 16. ~~Phase 9.5: Final Validation Suite + Bybit Integration~~ DONE (2026-01-27)
-17. **Forward testing with Bybit Paper Trader** (NEXT) - Phase 1: 50 trades @ 0.5% risk
+17. ~~Phase 9.7: Funding Rate Filter Validation~~ FAILED (2026-01-28) - Filter removes more winners than losers
+18. **Forward testing with Bybit Paper Trader** (NEXT) - Phase 1: 50 trades @ 0.5% risk, BASE system (no funding filter)
 
 ## Commands Reference
 - Run backtest: `python -m cli.run_backtest --symbol BTCUSDT --timeframe 4h`
@@ -975,9 +976,61 @@ export BYBIT_TESTNET_API_SECRET="your_api_secret"
 
 ---
 
+## Phase 9.7: Funding Rate Filter Validation (2026-01-28) ❌ FAILED
+
+Tested funding rate filter using DeepSeek-style validation methodology.
+
+### Hypothesis
+
+Extreme funding rates (±0.010%) predict poor trade outcomes due to overcrowded positioning.
+
+### Results
+
+| Test | Result | Status |
+|------|--------|--------|
+| Permutation (10k) | p = 0.0111 | ✅ PASS (p < 0.05) |
+| Walk-Forward | 4/5 folds improved | ✅ PASS |
+| Economic Impact | Net R = -128.5R | ❌ FAIL |
+
+### Key Finding: Survivorship Bias in PF
+
+| Metric | Baseline | Filtered | Change |
+|--------|----------|----------|--------|
+| PF | 8.27 | 9.47 | +14.5% |
+| Trades Removed | - | 68 | 19% |
+| Winners Removed | - | 41 | 60% of removed |
+| Losers Removed | - | 27 | 40% of removed |
+
+**Problem:** Filter removes MORE winners (41) than losers (27). PF improved because removing ANY trade with below-average R/R mechanically improves PF - this is survivorship bias, not predictive power.
+
+### R Attribution
+
+- Winners lost: -155.8R
+- Losers avoided: +27.3R
+- **Net impact: -128.5R** (WORSE than baseline)
+
+### Verdict: FAIL
+
+Filter lacks selective power. Statistical significance is misleading - randomly removing trades would produce similar PF improvement.
+
+### Decision
+
+**Paper trade BASE system (no funding filter).** Add inverse hypothesis to Priority 2 backlog: test if extreme funding IMPROVES outcomes (momentum/trend confirmation).
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/data/funding_rates.py` | Funding rate fetcher |
+| `src/research/feature_validator.py` | DeepSeek-style validation |
+| `scripts/validate_funding_filter.py` | Validation CLI |
+| `research/journal.json` | Experiment tracking |
+
+---
+
 ## What's Next
 
-**Phase 9.5 complete. Ready for Bybit paper trading.**
+**Phase 9.7 complete. Funding filter FAILED - proceeding with BASE system.**
 
 ### Recommended Workflow
 
