@@ -52,6 +52,7 @@ Quantitative validation framework for Quasimodo (QML) chart pattern detection in
     - Target: 50 trades (Phase 1)
     - Progress criteria: PF > 1.5, WR > 45%
     - Concurrent: Priority 2 research (30% time allocation)
+    - **BLOCKER**: Need Bybit TESTNET API keys (testnet.bybit.com, not mainnet)
 19. Priority 2 Research: Liquidation Clusters (PLANNED - timebox 20 hours)
 
 ## Commands Reference

@@ -46,7 +46,15 @@ def check_bybit_connection() -> tuple[bool, str]:
     """Test Bybit testnet connection."""
     try:
         from src.execution import BybitTestnetClient
-        client = BybitTestnetClient(testnet=True)
+
+        api_key = os.environ.get('BYBIT_TESTNET_API_KEY', '')
+        api_secret = os.environ.get('BYBIT_TESTNET_API_SECRET', '')
+
+        client = BybitTestnetClient(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=True
+        )
         balance = client.get_balance()
 
         if balance and balance.total_equity > 0:
