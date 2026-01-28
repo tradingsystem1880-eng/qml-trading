@@ -47,7 +47,12 @@ Quantitative validation framework for Quasimodo (QML) chart pattern detection in
 15. ~~Phase 9.4: Validate PF 5.0 + Forward Test Setup~~ DONE (2026-01-27)
 16. ~~Phase 9.5: Final Validation Suite + Bybit Integration~~ DONE (2026-01-27)
 17. ~~Phase 9.7: Funding Rate Filter Validation~~ FAILED (2026-01-28) - Filter removes more winners than losers
-18. **Forward testing with Bybit Paper Trader** (NEXT) - Phase 1: 50 trades @ 0.5% risk, BASE system (no funding filter)
+18. **Phase 9.8: Paper Trading BASE System** (ACTIVE)
+    - Risk: 0.5% per trade
+    - Target: 50 trades (Phase 1)
+    - Progress criteria: PF > 1.5, WR > 45%
+    - Concurrent: Priority 2 research (30% time allocation)
+19. Priority 2 Research: Liquidation Clusters (PLANNED - timebox 20 hours)
 
 ## Commands Reference
 - Run backtest: `python -m cli.run_backtest --symbol BTCUSDT --timeframe 4h`
