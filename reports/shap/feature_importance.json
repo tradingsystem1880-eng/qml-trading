@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-01-28T13:10:34.846519",
+  "num_samples": 242,
+  "num_features": 13,
+  "win_rate": 0.5495867768595041,
+  "feature_importance": [
+    {
+      "feature": "entry_day_of_week",
+      "importance": 0.5043129920959473
+    },
+    {
+      "feature": "adx",
+      "importance": 0.4669604003429413
+    },
+    {
+      "feature": "pattern_bars",
+      "importance": 0.31564533710479736
+    },
+    {
+      "feature": "regime_score",
+      "importance": 0.29561847448349
+    },
+    {
+      "feature": "volume_ratio",
+      "importance": 0.2833569049835205
+    },
+    {
+      "feature": "atr_percentile",
+      "importance": 0.2638745605945587
+    },
+    {
+      "feature": "swing_significance_score",
+      "importance": 0.2575323283672333
+    },
+    {
+      "feature": "shoulder_symmetry_score",
+      "importance": 0.23367707431316376
+    },
+    {
+      "feature": "head_extension_score",
+      "importance": 0.16673247516155243
+    },
+    {
+      "feature": "total_score",
+      "importance": 0.15713900327682495
+    },
+    {
+      "feature": "atr_at_signal",
+      "importance": 0.14741601049900055
+    },
+    {
+      "feature": "bos_efficiency_score",
+      "importance": 0.12135018408298492
+    },
+    {
+      "feature": "entry_hour",
+      "importance": 0.08174281567335129
+    }
+  ],
+  "top_5_features": [
+    "entry_day_of_week",
+    "adx",
+    "pattern_bars",
+    "regime_score",
+    "volume_ratio"
+  ]
+}

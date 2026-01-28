@@ -49,6 +49,7 @@ from pages import (
     render_ml_training_page,
     render_settings_page,
     render_live_scanner_page,
+    render_forward_test_page,
 )
 
 
@@ -102,6 +103,7 @@ def main():
         "📡 Live Scanner",
         "📈 Backtest",
         "📉 Analytics",
+        "🎯 Forward Test",
         "🧪 Experiments",
         "🧠 ML Training",
         "⚙️ Settings",
@@ -124,12 +126,15 @@ def main():
         render_analytics_page()
 
     with tabs[5]:
-        render_experiments_page()
+        render_forward_test_page()
 
     with tabs[6]:
-        render_ml_training_page()
+        render_experiments_page()
 
     with tabs[7]:
+        render_ml_training_page()
+
+    with tabs[8]:
         render_settings_page()
 
 

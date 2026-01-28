@@ -35,40 +35,44 @@ from config.settings import settings
 @dataclass
 class PaperSignal:
     """Represents a trading signal for paper trading."""
-    
+
     timestamp: str
     signal_id: str
     symbol: str
     timeframe: str
     pattern_type: str  # BULLISH or BEARISH
-    
+
     # Detection context
     choch_time: str
     bos_time: str
     head_price: float
     left_shoulder_price: float
     right_shoulder_price: float
-    
+
     # Trading levels
     entry_price: float
     stop_loss: float
     take_profit_1: float
     risk_reward: float
-    
+
     # Market context
     volatility_percentile: float
     adx: float
     rsi: float
     trend_state: str
-    
+
     # Filter decision
     filter_enabled: bool
     filter_decision: str  # PASS or FAIL
     filter_reason: str
-    
+
     # Validity
     validity_score: float
-    
+
+    # Phase 9.0: Position sizing
+    position_size_pct: float = 1.0  # Risk as % of equity (default 1%)
+    position_rationale: str = "Fixed 1%"  # Explanation of sizing
+
     # Position tracking (updated as trade resolves)
     position_status: str = "PENDING"  # PENDING, OPEN, CLOSED
     exit_price: Optional[float] = None
@@ -80,56 +84,79 @@ class PaperSignal:
 class PaperTradingEngine:
     """
     Paper trading engine for QML strategy.
-    
+
     Monitors markets, detects patterns, and logs all signals
     for paper trading validation.
+
+    Phase 9.0 additions:
+    - Optional Kelly sizer for position sizing
+    - Optional position rules manager for risk management
+    - Optional forward test monitor for edge tracking
     """
-    
+
     def __init__(
         self,
         symbols: List[str],
         timeframe: str = "1h",
         filter_enabled: bool = True,
         vol_threshold: float = 0.7,
-        log_dir: str = "paper_trading_logs"
+        log_dir: str = "paper_trading_logs",
+        kelly_sizer=None,  # Optional: KellyPositionSizer from src.risk.kelly_sizer
+        position_rules=None,  # Optional: PositionRulesManager from src.risk.position_rules
+        forward_monitor=None,  # Optional: ForwardTestMonitor from src.risk.forward_monitor
+        account_equity: float = 100_000,  # Default account size for sizing
     ):
         """
         Initialize paper trading engine.
-        
+
         Args:
             symbols: List of trading pairs to monitor
             timeframe: Primary timeframe for detection
             filter_enabled: Whether to apply high-conviction filter
             vol_threshold: Volatility threshold for filter
             log_dir: Directory for signal logs
+            kelly_sizer: Optional Kelly sizer for position sizing
+            position_rules: Optional position rules manager for risk management
+            forward_monitor: Optional forward test monitor for edge tracking
+            account_equity: Account equity for position sizing calculations
         """
         self.symbols = symbols
         self.timeframe = timeframe
         self.filter_enabled = filter_enabled
         self.vol_threshold = vol_threshold
         self.log_dir = Path(log_dir)
-        
+
+        # Phase 9.0: Position sizing and risk management
+        self.kelly_sizer = kelly_sizer
+        self.position_rules = position_rules
+        self.forward_monitor = forward_monitor
+        self.account_equity = account_equity
+
         # Initialize components
         self.db = DatabaseManager()
         self.fetcher = DataFetcher()
         self.detector = QMLDetector()
-        
+
         # State tracking
         self.active_signals: Dict[str, PaperSignal] = {}
         self.completed_signals: List[PaperSignal] = []
         self.last_detection_time: Dict[str, datetime] = {}
-        
+
         # Create log directory
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize log file
         self.log_file = self.log_dir / f"signals_{datetime.now().strftime('%Y%m%d')}.json"
-        
+
         logger.info(f"Paper trading engine initialized")
         logger.info(f"Symbols: {symbols}")
         logger.info(f"Timeframe: {timeframe}")
         logger.info(f"Filter enabled: {filter_enabled}")
         logger.info(f"Volatility threshold: {vol_threshold}")
+        if kelly_sizer:
+            logger.info(f"Kelly sizer: enabled")
+        if position_rules:
+            logger.info(f"Position rules: enabled")
     
     def calculate_market_context(
         self,
@@ -261,7 +288,32 @@ class PaperTradingEngine:
                 filter_reason=reason,
                 validity_score=pattern.validity_score if hasattr(pattern, 'validity_score') else 0.5
             )
-            
+
+            # Phase 9.0: Calculate position size
+            if self.position_rules:
+                # Use position rules manager for sizing with risk checks
+                size_result = self.position_rules.calculate_position_size(
+                    account_equity=self.account_equity,
+                    entry_price=signal.entry_price,
+                    stop_loss_price=signal.stop_loss,
+                )
+                signal.position_size_pct = size_result.risk_pct * 100  # Convert to percentage
+                signal.position_rationale = size_result.rationale
+                if not size_result.can_trade:
+                    logger.warning(f"Trade blocked: {size_result.blocks}")
+                    continue  # Skip this signal if blocked by risk rules
+            elif self.kelly_sizer:
+                # Use Kelly sizer (Phase 7.9 baseline stats)
+                size_result = self.kelly_sizer.calculate(
+                    win_rate=0.52,  # Phase 7.9 baseline
+                    avg_win=2.0,    # Avg win in R-multiples
+                    avg_loss=1.0,   # Avg loss in R-multiples
+                    current_equity=self.account_equity,
+                    stop_loss_pct=abs(signal.entry_price - signal.stop_loss) / signal.entry_price,
+                )
+                signal.position_size_pct = size_result.position_size_pct
+                signal.position_rationale = f"Kelly: {size_result.adjusted_kelly:.3f}"
+
             signals.append(signal)
             self.last_detection_time[symbol] = pattern_time
         

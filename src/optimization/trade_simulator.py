@@ -35,6 +35,8 @@ class TradeManagementConfig:
     Configuration for trade management parameters.
 
     All parameters are ML-optimizable for Phase 7.7.
+    Phase 9.0 adds time-decaying TP and volume-adjusted TP.
+    Phase 9.2 adds multi-stage trailing stop to fix breakeven bug.
     """
     # Entry confirmation
     entry_buffer_atr: float = 0.1  # Buffer beyond entry for confirmation
@@ -44,9 +46,33 @@ class TradeManagementConfig:
     sl_atr_mult: float = 1.5  # SL distance in ATR
     tp_atr_mult: float = 3.0  # TP distance in ATR
 
-    # Trailing stop (0 = disabled)
+    # Trailing stop mode
+    # "none" = no trailing (fixed SL/TP only)
+    # "simple" = original breakeven activation (BUGGY - causes dust profits)
+    # "multi_stage" = Phase 9.2 multi-stage trailing (recommended)
+    trailing_mode: str = "multi_stage"
+
+    # Simple trailing stop params (for trailing_mode="simple")
     trailing_activation_atr: float = 1.0  # Activate when profit >= this ATR
     trailing_step_atr: float = 0.5  # Move SL by this much when price moves by step
+
+    # Multi-stage trailing stop params (for trailing_mode="multi_stage")
+    # Stage 0: Below stage1_profit_r - keep initial stop, no adjustment
+    # Stage 1: stage1_profit_r to stage2_profit_r - move to breakeven + stage1_level_r
+    # Stage 2: stage2_profit_r to stage3_profit_r - loose trail at stage2_atr from high
+    # Stage 3: stage3_profit_r to stage4_profit_r - medium trail at stage3_atr
+    # Stage 4: Above stage4_profit_r - tight trail at stage4_atr
+    #
+    # Phase 9.2: Conservative defaults to let trades develop
+    # Previous defaults (1.0/0.2) caused 40%+ short hold trades
+    trailing_stage1_profit_r: float = 1.5   # Activate stage 1 at 1.5R profit (was 1.0)
+    trailing_stage1_level_r: float = 0.5    # Move SL to +0.5R (was 0.2R)
+    trailing_stage2_profit_r: float = 2.0   # Activate stage 2 at 2.0R profit (was 1.5)
+    trailing_stage2_atr: float = 1.2        # Trail at 1.2 ATR from high (was 1.0)
+    trailing_stage3_profit_r: float = 3.0   # Activate stage 3 at 3.0R profit (was 2.5)
+    trailing_stage3_atr: float = 0.8        # Trail at 0.8 ATR from high (was 0.7)
+    trailing_stage4_profit_r: float = 5.0   # Activate stage 4 at 5.0R profit (was 4.0)
+    trailing_stage4_atr: float = 0.5        # Trail at 0.5 ATR from high (tight)
 
     # Time-based exit (0 = disabled)
     max_bars_held: int = 50  # Exit after this many bars if no SL/TP hit
@@ -57,6 +83,18 @@ class TradeManagementConfig:
     # Slippage and commission
     slippage_pct: float = 0.05  # 0.05% slippage per side
     commission_pct: float = 0.1  # 0.1% commission per side
+
+    # Phase 9.0: Time-decaying profit target
+    # TP(t) = Entry + Risk × R_target × e^(-λ × t) where λ = ln(2) / halflife_bars
+    tp_decay_enabled: bool = False  # Enable time-decaying TP
+    tp_decay_halflife_bars: int = 20  # TP R-multiple halves every N bars
+    tp_minimum_r: float = 0.5  # Never decay below this R-multiple
+
+    # Phase 9.0: Volume-adjusted TP
+    # Extend TP when volume confirms momentum
+    volume_tp_enabled: bool = False  # Enable volume-adjusted TP
+    volume_extension_threshold: float = 2.0  # Extend if volume > threshold × avg
+    volume_extension_mult: float = 1.2  # Extend TP distance by this multiplier
 
 
 @dataclass
@@ -339,6 +377,15 @@ class TradeSimulator:
         max_adverse = 0.0  # Worst drawdown from entry
         max_favorable = 0.0  # Best profit from entry
 
+        # Pre-calculate original R-multiple for decay
+        original_r = abs(trade.take_profit - trade.entry_price) / risk if risk > 0 else 0
+
+        # Pre-calculate average volume for volume extension (last 20 bars before entry)
+        avg_volume = None
+        if cfg.volume_tp_enabled and 'volume' in df.columns:
+            vol_start = max(0, trade.entry_bar_idx - 20)
+            avg_volume = df.iloc[vol_start:trade.entry_bar_idx]['volume'].mean()
+
         for idx in range(start_idx, len(df)):
             row = df.iloc[idx]
             high = row['high']
@@ -346,6 +393,32 @@ class TradeSimulator:
             close = row['close']
 
             bars_held = idx - trade.entry_bar_idx
+
+            # Phase 9.0: Calculate time-decayed TP
+            current_tp = trade.take_profit  # Default to original
+            if cfg.tp_decay_enabled and risk > 0:
+                # TP(t) = Entry + Risk × R_target × e^(-λ × t)
+                # λ = ln(2) / halflife_bars (so TP halves every halflife_bars)
+                decay_lambda = np.log(2) / cfg.tp_decay_halflife_bars
+                decay_factor = np.exp(-decay_lambda * bars_held)
+                decayed_r = max(cfg.tp_minimum_r, original_r * decay_factor)
+
+                if trade.side == Side.LONG:
+                    current_tp = trade.entry_price + (decayed_r * risk)
+                else:
+                    current_tp = trade.entry_price - (decayed_r * risk)
+
+            # Phase 9.0: Volume extension (boost TP on high volume)
+            if cfg.volume_tp_enabled and avg_volume and avg_volume > 0:
+                current_volume = row.get('volume', 0)
+                if current_volume > avg_volume * cfg.volume_extension_threshold:
+                    # Extend TP distance by multiplier
+                    tp_distance = abs(current_tp - trade.entry_price)
+                    extended_distance = tp_distance * cfg.volume_extension_mult
+                    if trade.side == Side.LONG:
+                        current_tp = trade.entry_price + extended_distance
+                    else:
+                        current_tp = trade.entry_price - extended_distance
 
             # Update MAE/MFE based on side
             if trade.side == Side.LONG:
@@ -360,20 +433,44 @@ class TradeSimulator:
                     max_favorable = favorable
                     trade.mfe_price = high
 
-                # Check trailing stop activation
-                if cfg.trailing_activation_atr > 0 and not trade.trailing_activated:
-                    activation_level = trade.entry_price + (cfg.trailing_activation_atr * trade.atr_at_entry)
-                    if high >= activation_level:
-                        trade.trailing_activated = True
-                        trade.trailing_stop_price = trade.entry_price  # Initial trailing stop at breakeven
+                # Handle trailing stop based on mode
+                if cfg.trailing_mode == "multi_stage":
+                    # Phase 9.2: Multi-stage trailing that lets trades develop
+                    current_profit_r = favorable / risk if risk > 0 else 0
+                    highest_profit_r = max_favorable / risk if risk > 0 else 0
 
-                # Update trailing stop
-                if trade.trailing_activated and trade.trailing_stop_price is not None:
-                    step = cfg.trailing_step_atr * trade.atr_at_entry
-                    new_trailing = high - step
-                    if new_trailing > trade.trailing_stop_price:
-                        trade.trailing_stop_price = new_trailing
-                        current_sl = max(trade.stop_loss, trade.trailing_stop_price)
+                    new_trailing = self._get_multi_stage_trailing_stop(
+                        current_profit_r=current_profit_r,
+                        highest_profit_r=highest_profit_r,
+                        highest_price=trade.mfe_price,
+                        entry_price=trade.entry_price,
+                        initial_stop=trade.stop_loss,
+                        atr=trade.atr_at_entry,
+                        side=Side.LONG,
+                    )
+
+                    if new_trailing is not None:
+                        # Only update if new trailing is higher (tighter for longs)
+                        if trade.trailing_stop_price is None or new_trailing > trade.trailing_stop_price:
+                            trade.trailing_activated = True
+                            trade.trailing_stop_price = new_trailing
+                            current_sl = max(trade.stop_loss, trade.trailing_stop_price)
+
+                elif cfg.trailing_mode == "simple":
+                    # Original simple trailing (kept for backwards compatibility)
+                    if cfg.trailing_activation_atr > 0 and not trade.trailing_activated:
+                        activation_level = trade.entry_price + (cfg.trailing_activation_atr * trade.atr_at_entry)
+                        if high >= activation_level:
+                            trade.trailing_activated = True
+                            trade.trailing_stop_price = trade.entry_price
+
+                    if trade.trailing_activated and trade.trailing_stop_price is not None:
+                        step = cfg.trailing_step_atr * trade.atr_at_entry
+                        new_trailing = high - step
+                        if new_trailing > trade.trailing_stop_price:
+                            trade.trailing_stop_price = new_trailing
+                            current_sl = max(trade.stop_loss, trade.trailing_stop_price)
+                # else: trailing_mode == "none" - no trailing stop
 
                 # Check exits (order: SL first, then TP)
                 if low <= current_sl:
@@ -382,8 +479,8 @@ class TradeSimulator:
                         exit_reason = ExitReason.TRAILING_STOP
                     else:
                         exit_reason = ExitReason.STOP_LOSS
-                elif high >= trade.take_profit:
-                    exit_price = trade.take_profit
+                elif high >= current_tp:
+                    exit_price = current_tp
                     exit_reason = ExitReason.TAKE_PROFIT
                 elif cfg.max_bars_held > 0 and bars_held >= cfg.max_bars_held:
                     exit_price = close
@@ -403,20 +500,44 @@ class TradeSimulator:
                     max_favorable = favorable
                     trade.mfe_price = low
 
-                # Check trailing stop activation
-                if cfg.trailing_activation_atr > 0 and not trade.trailing_activated:
-                    activation_level = trade.entry_price - (cfg.trailing_activation_atr * trade.atr_at_entry)
-                    if low <= activation_level:
-                        trade.trailing_activated = True
-                        trade.trailing_stop_price = trade.entry_price  # Initial trailing stop at breakeven
+                # Handle trailing stop based on mode
+                if cfg.trailing_mode == "multi_stage":
+                    # Phase 9.2: Multi-stage trailing that lets trades develop
+                    current_profit_r = favorable / risk if risk > 0 else 0
+                    highest_profit_r = max_favorable / risk if risk > 0 else 0
 
-                # Update trailing stop
-                if trade.trailing_activated and trade.trailing_stop_price is not None:
-                    step = cfg.trailing_step_atr * trade.atr_at_entry
-                    new_trailing = low + step
-                    if new_trailing < trade.trailing_stop_price:
-                        trade.trailing_stop_price = new_trailing
-                        current_sl = min(trade.stop_loss, trade.trailing_stop_price)
+                    new_trailing = self._get_multi_stage_trailing_stop(
+                        current_profit_r=current_profit_r,
+                        highest_profit_r=highest_profit_r,
+                        highest_price=trade.mfe_price,  # For shorts, this is the lowest price
+                        entry_price=trade.entry_price,
+                        initial_stop=trade.stop_loss,
+                        atr=trade.atr_at_entry,
+                        side=Side.SHORT,
+                    )
+
+                    if new_trailing is not None:
+                        # Only update if new trailing is lower (tighter for shorts)
+                        if trade.trailing_stop_price is None or new_trailing < trade.trailing_stop_price:
+                            trade.trailing_activated = True
+                            trade.trailing_stop_price = new_trailing
+                            current_sl = min(trade.stop_loss, trade.trailing_stop_price)
+
+                elif cfg.trailing_mode == "simple":
+                    # Original simple trailing (kept for backwards compatibility)
+                    if cfg.trailing_activation_atr > 0 and not trade.trailing_activated:
+                        activation_level = trade.entry_price - (cfg.trailing_activation_atr * trade.atr_at_entry)
+                        if low <= activation_level:
+                            trade.trailing_activated = True
+                            trade.trailing_stop_price = trade.entry_price
+
+                    if trade.trailing_activated and trade.trailing_stop_price is not None:
+                        step = cfg.trailing_step_atr * trade.atr_at_entry
+                        new_trailing = low + step
+                        if new_trailing < trade.trailing_stop_price:
+                            trade.trailing_stop_price = new_trailing
+                            current_sl = min(trade.stop_loss, trade.trailing_stop_price)
+                # else: trailing_mode == "none" - no trailing stop
 
                 # Check exits
                 if high >= current_sl:
@@ -425,8 +546,8 @@ class TradeSimulator:
                         exit_reason = ExitReason.TRAILING_STOP
                     else:
                         exit_reason = ExitReason.STOP_LOSS
-                elif low <= trade.take_profit:
-                    exit_price = trade.take_profit
+                elif low <= current_tp:
+                    exit_price = current_tp
                     exit_reason = ExitReason.TAKE_PROFIT
                 elif cfg.max_bars_held > 0 and bars_held >= cfg.max_bars_held:
                     exit_price = close
@@ -601,6 +722,53 @@ class TradeSimulator:
             exit_by_trailing=exit_trailing,
             exit_by_time=exit_time,
         )
+
+    def _get_multi_stage_trailing_stop(
+        self,
+        current_profit_r: float,
+        highest_profit_r: float,
+        highest_price: float,
+        entry_price: float,
+        initial_stop: float,
+        atr: float,
+        side: Side,
+    ) -> Optional[float]:
+        """
+        Calculate multi-stage trailing stop level.
+
+        Phase 9.2: Multi-stage trailing that lets trades develop:
+        - Stage 0: Below 1R - no adjustment, keep initial stop
+        - Stage 1: 1-1.5R - move to breakeven + 0.2R (protect small profit)
+        - Stage 2: 1.5-2.5R - loose trail at 1.0 ATR from high
+        - Stage 3: 2.5-4R - medium trail at 0.7 ATR from high
+        - Stage 4: >4R - tight trail at 0.5 ATR from high
+
+        Returns:
+            New trailing stop price, or None if no adjustment needed
+        """
+        cfg = self.config
+        risk = abs(entry_price - initial_stop)
+        direction = 1 if side == Side.LONG else -1
+
+        if current_profit_r < cfg.trailing_stage1_profit_r:
+            # Stage 0: Below threshold - no trailing, keep initial stop
+            return None
+
+        elif current_profit_r < cfg.trailing_stage2_profit_r:
+            # Stage 1: Move to just above breakeven
+            return entry_price + (cfg.trailing_stage1_level_r * risk * direction)
+
+        elif current_profit_r < cfg.trailing_stage3_profit_r:
+            # Stage 2: Loose trail
+            return highest_price - (cfg.trailing_stage2_atr * atr * direction)
+
+        elif current_profit_r < cfg.trailing_stage4_profit_r:
+            # Stage 3: Medium trail
+            return highest_price - (cfg.trailing_stage3_atr * atr * direction)
+
+        else:
+            # Stage 4: Tight trail
+            return highest_price - (cfg.trailing_stage4_atr * atr * direction)
 
     def _calculate_atr(self, df: pd.DataFrame, period: int = 14) -> pd.Series:
         """Calculate ATR if not present."""

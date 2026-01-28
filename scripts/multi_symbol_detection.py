@@ -135,12 +135,18 @@ def run_detection(df: pd.DataFrame, symbol: str, timeframe: str) -> Tuple[List, 
     print(f"    Valid patterns: {len(valid_patterns)}")
 
     # 3. Score patterns (pass df and regime_result for Phase 7.6/7.8 metrics)
+    # IMPORTANT: Calculate regime AT EACH PATTERN'S TIME, not once for entire df
     scorer = PatternScorer(SCORING_CONFIG)
     regime_detector = MarketRegimeDetector()
-    regime_result = regime_detector.get_regime(df)
 
     scored = []
     for p in valid_patterns:
+        # Get regime at pattern's P5 time (need 110+ bars for proper calculation)
+        p5_idx = p.p5.bar_index
+        window_start = max(0, p5_idx - 150)  # 150 bars to ensure enough data
+        window_df = df.iloc[window_start:p5_idx + 1].copy()
+        regime_result = regime_detector.get_regime(window_df)
+
         score_result = scorer.score(p, df=df, regime_result=regime_result)
         if score_result.tier != PatternTier.REJECT:
             scored.append((p, score_result))
